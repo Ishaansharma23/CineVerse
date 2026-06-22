@@ -1,11 +1,10 @@
-import React from "react";
 import {
   FaFacebookF,
   FaTwitter,
   FaInstagram,
   FaLinkedinIn,
 } from "react-icons/fa";
-import logo from "../../assets/main-icon.png";
+import logo from "../../assets/main-icon-white.png";
 
 const Footer = () => {
   return (
@@ -16,7 +15,7 @@ const Footer = () => {
           <img
             src={logo}
             alt="Logo"
-            className="w-28 mb-4 bg-gray-100 mt-2"
+            className="w-28 mb-4 mt-2"
           />
         </div>
 

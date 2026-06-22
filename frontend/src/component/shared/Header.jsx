@@ -1,11 +1,10 @@
-import React from 'react'
 import mainIcon from '../../assets/main-icon.png'
 import { FaSearch } from "react-icons/fa";
 import { useLocation } from '../../context/LocationContext';
 
 const Header = () => {
 
-  const { location , loading, error} = useLocation();
+  const { location } = useLocation();
 
   return (
     <div className='w-full text-sm bg-white'>

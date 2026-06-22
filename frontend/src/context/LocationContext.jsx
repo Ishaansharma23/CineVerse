@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useState } from "react";
 
 export const LocationContext = createContext();
@@ -18,7 +19,7 @@ export const LocationProvider = ({children}) => {
                 const userlocation = data?.city || data?.locality || data?.principalSubdivision || "Unknown Location";
                 setLocation(userlocation);
                 setLoading(false);
-            } catch (err) {
+            } catch {
                 setError("Failed to fetch location data");
                 setLoading(false);
             }
