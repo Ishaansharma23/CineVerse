@@ -12,7 +12,7 @@ function App() {
   return (
     <>
     <div className='flex flex-col min-h-screen'>
-    <main className='flex-grow'>
+    <main className='grow'>
       <Header/>
       <Routes>
         <Route path='/' element={<h1>Homepage</h1>} />
