@@ -1,3 +1,4 @@
+import Recommended from '../component/Recommended'
 import BannerSlider from '../component/shared/BannerSlider'
 
 const Home = () => {

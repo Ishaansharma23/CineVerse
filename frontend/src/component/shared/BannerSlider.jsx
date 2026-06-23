@@ -1,98 +1,230 @@
-import SliderModule from 'react-slick';
-import { banners } from '../../utils/Constants';
-
-const Slider = SliderModule.default || SliderModule;
-
-const ArrowButton = ({ className, onClick, direction }) => (
-    <button
-        type="button"
-        onClick={onClick}
-        className={`absolute top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-black/10 bg-black! text-white! shadow-[0_10px_25px_rgba(0,0,0,0.14)] transition hover:scale-105 hover:bg-gray-900! ${className || ''}`}
-        aria-label={direction === 'next' ? 'Next banner' : 'Previous banner'}
-    >
-        <span className="text-lg leading-none">
-            {direction === 'next' ? '›' : '‹'}
-        </span>
-    </button>
-);
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FaPlay, FaInfoCircle, FaChevronLeft, FaChevronRight, FaStar } from 'react-icons/fa';
+import { movieService } from '../../services/movieService';
 
 const BannerSlider = () => {
-    const settings = {
-        slidesToShow: 1,
-        slidesToScroll: 1,
-        centerMode: true, // center ka banner bda dikhega 
-        centerPadding: '9vw', // Center slide ke left/right 9vw khaal jagah chhod
-        speed: 800,
-        cssEase: 'cubic-bezier(0.22, 1, 0.36, 1)', // Fancy animation curve.
-        autoplay: true,
-        autoplaySpeed: 2000,
-        infinite: true,
-        arrows: true,
-        dots: true, // ye dots ko change kr rha jaise slide change hori
-        pauseOnHover: true,
-        swipeToSlide: true, // mobile m mostly used drag krke swipe krke dekhne k liye banner 
-        adaptiveHeight: false, // chote pages or bada banner ke liye height adjust nahi karega, consistent height dega.
-        nextArrow: <ArrowButton direction="next" className="right-2 sm:right-4 lg:right-6" />,
-        prevArrow: <ArrowButton direction="prev" className="left-2 sm:left-4 lg:left-6" />,
-        customPaging: () => ( // Ye dots ka design change kar raha hai.
-            <button type="button" className="mx-1 h-2.5 w-2.5 rounded-full bg-black/20 transition hover:bg-black/60" aria-label="Go to slide" /> //. Agar koi visually impaired banda website use kare to screen reader bolega: "Go to slide" jab wo dots pe focus karega. Ye accessibility ke liye important hai.
-        ),
-        appendDots: (dots) => (  // Ye dots ko style kar raha hai.
-            <div>
-                <ul className="mt-4 flex items-center justify-center gap-1.5">{dots}</ul>
+    const [banners, setBanners] = useState([]);
+    const [activeIndex, setActiveIndex] = useState(0);
+    const [isHovered, setIsHovered] = useState(false);
+    const timerRef = useRef(null);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const loadBanners = async () => {
+            try {
+                // Fetch top trending movies for the hero banner
+                const response = await movieService.getTrendingMovies(5);
+                if (isMounted) {
+                    setBanners(response.movies || []);
+                }
+            } catch (error) {
+                console.error('Failed to load banner movies:', error.message);
+            }
+        };
+
+        loadBanners();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
+
+    const startTimer = useCallback(() => {
+        if (timerRef.current) clearInterval(timerRef.current);
+        
+        // Timer only runs if not hovered
+        if (!isHovered && banners.length > 0) {
+            timerRef.current = setInterval(() => {
+                setActiveIndex((prevIndex) => (prevIndex + 1) % banners.length);
+            }, 6000);
+        }
+    }, [banners.length, isHovered]);
+
+    useEffect(() => {
+        if (banners.length > 0) {
+            startTimer();
+        }
+        return () => {
+            if (timerRef.current) clearInterval(timerRef.current);
+        };
+    }, [banners, startTimer, isHovered]);
+
+    const handlePrev = (e) => {
+        e.stopPropagation();
+        setActiveIndex((prevIndex) => (prevIndex - 1 + banners.length) % banners.length);
+        startTimer();
+    };
+
+    const handleNext = (e) => {
+        e.stopPropagation();
+        setActiveIndex((prevIndex) => (prevIndex + 1) % banners.length);
+        startTimer();
+    };
+
+    const handleDotClick = (index, e) => {
+        e.stopPropagation();
+        setActiveIndex(index);
+        startTimer();
+    };
+
+    if (!banners.length) {
+        return (
+            <div className="w-full aspect-[4/3] sm:aspect-[16/10] md:aspect-[21/9] bg-neutral-950 flex items-center justify-center">
+                <div className="flex flex-col items-center gap-3">
+                    <div className="w-10 h-10 border-4 border-[#f84464] border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-neutral-400 text-sm font-medium tracking-wide">Loading Spotlight...</span>
+                </div>
             </div>
-        ),
-        responsive: [
-            {
-                breakpoint: 1280,
-                settings: {
-                    centerMode: true,
-                    centerPadding: '12vw',
-                    arrows: true,
-                },
-            },
-            {
-                breakpoint: 1024,
-                settings: {
-                    centerMode: true,
-                    centerPadding: '8vw',
-                    arrows: true,
-                },
-            },
-            {
-                breakpoint: 768,
-                settings: {
-                    centerMode: false,
-                    centerPadding: '0px',
-                    arrows: true,
-                    dots: true,
-                    speed: 800,
-                },
-            },
-        ],
+        );
     }
 
+    const currentBanner = banners[activeIndex];
 
-  return (
-        <div className="w-full bg-white py-4 sm:py-6">
-            <div className="mx-auto w-full max-w-[1600px] px-3 sm:px-4 lg:px-8">
-                <Slider {...settings} className="banner-slider">
-                    {banners.map((banner, index) => (
-                        <div key={index} className="px-2 outline-none">
-                            <div className="group relative h-50 overflow-hidden rounded-[14px] border border-black/10 bg-[#f7f7f7] shadow-[0_12px_30px_rgba(0,0,0,0.16)] transition duration-300 ease-out hover:scale-[1.01] sm:h-75 lg:h-95">
-                                <img
-                                    src={banner}
-                                    alt={`Banner ${index + 1}`}
-                                    className="h-full w-full object-contain p-1 sm:p-1.5 transition duration-500 ease-out group-hover:scale-[1.01]"
-                                />
-                                <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.04),rgba(0,0,0,0.04),rgba(255,255,255,0.04))]" />
-                            </div>
-                        </div>
-                    ))}
-                </Slider>
+    return (
+        <div 
+            className="group relative w-full overflow-hidden bg-neutral-950 aspect-[4/3] sm:aspect-[16/10] md:aspect-[21/9] select-none"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+        >
+            {/* Background Image Carousel (Fade & Zoom Transition) */}
+            <div className="absolute inset-0 w-full h-full">
+                <AnimatePresence initial={false} mode="popLayout">
+                    <motion.div
+                        key={activeIndex}
+                        className="absolute inset-0 w-full h-full overflow-hidden"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 1.0, ease: 'easeInOut' }}
+                    >
+                        {/* Ken Burns Slide Zoom Effect */}
+                        <motion.img
+                            src={currentBanner.bannerImage || currentBanner.backdropUrl || currentBanner.image}
+                            alt={currentBanner.title}
+                            initial={{ scale: 1.08 }}
+                            animate={{ scale: 1.01 }}
+                            transition={{ duration: 6, ease: 'easeOut' }}
+                            className="w-full h-full object-cover object-center"
+                        />
+                        
+                        {/* Cinematic Ambient Overlays */}
+                        {/* Left gradient for text readability */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-neutral-950 via-neutral-950/70 via-35% via-neutral-950/20 to-transparent z-10" />
+                        
+                        {/* Bottom gradient to blend with the rest of the site */}
+                        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-neutral-950 via-neutral-950/30 to-transparent z-10" />
+                        
+                        {/* Top subtle vignette */}
+                        <div className="absolute inset-x-0 top-0 h-1/4 bg-gradient-to-b from-neutral-950/50 to-transparent z-10" />
+                    </motion.div>
+                </AnimatePresence>
+            </div>
+
+            {/* Slide Content Overlay */}
+            <AnimatePresence mode="wait">
+                <motion.div
+                    key={activeIndex}
+                    initial={{ opacity: 0, y: 25 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.6, ease: [0.215, 0.610, 0.355, 1.0] }}
+                    className="absolute inset-0 z-20 flex flex-col justify-end pb-10 pl-6 pr-6 sm:pb-16 sm:pl-12 lg:pb-20 lg:pl-24 max-w-3xl text-white pointer-events-none"
+                >
+                    {/* Genre Badges */}
+                    <div className="flex flex-wrap gap-2 mb-3 sm:mb-4 pointer-events-auto">
+                        {currentBanner.genres?.slice(0, 3).map((genre, i) => (
+                            <span 
+                                key={i} 
+                                className="px-3 py-0.5 text-[9px] sm:text-[10px] md:text-xs font-semibold tracking-wider uppercase bg-white/10 backdrop-blur-md border border-white/10 rounded-full text-white/90 shadow-sm"
+                            >
+                                {genre}
+                            </span>
+                        ))}
+                    </div>
+
+                    {/* Movie Title */}
+                    <h1 className="text-xl sm:text-3xl md:text-5xl lg:text-6xl font-extrabold tracking-tight mb-2 sm:mb-3 leading-none drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]">
+                        {currentBanner.title}
+                    </h1>
+
+                    {/* Metadata */}
+                    <div className="flex items-center gap-3 sm:gap-4 mb-4 text-xs sm:text-sm font-medium text-neutral-300 pointer-events-auto">
+                        {currentBanner.rating && (
+                            <span className="flex items-center gap-1 text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 shadow-inner">
+                                <FaStar className="w-3 h-3 sm:w-3.5 sm:h-3.5 fill-current" />
+                                {currentBanner.rating.toFixed(1)}
+                            </span>
+                        )}
+                        {currentBanner.releaseDate && (
+                            <span className="drop-shadow-sm">{new Date(currentBanner.releaseDate).getFullYear()}</span>
+                        )}
+                        {currentBanner.language && (
+                            <span className="uppercase border border-neutral-600 px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold tracking-wider bg-black/20">
+                                {currentBanner.language}
+                            </span>
+                        )}
+                    </div>
+
+                    {/* Overview description */}
+                    <p className="text-neutral-300 text-xs sm:text-sm md:text-base leading-relaxed mb-6 sm:mb-8 line-clamp-2 sm:line-clamp-3 md:line-clamp-4 max-w-xl drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]">
+                        {currentBanner.overview}
+                    </p>
+
+                    {/* Action Call-To-Action buttons */}
+                    <div className="flex items-center gap-3 pointer-events-auto">
+                        <button className="group/btn flex items-center gap-2 bg-[#f84464] hover:bg-[#f84464]/90 text-white font-semibold text-xs sm:text-sm md:text-base px-3 py-2 sm:px-6 sm:py-3.5 rounded-xl shadow-lg shadow-[#f84464]/10 hover:shadow-[#f84464]/30 hover:scale-[1.03] active:scale-[0.98] transition-all duration-300 cursor-pointer">
+                            <FaPlay className="w-3 h-1 sm:w-4 sm:h-4 fill-current group-hover/btn:translate-x-0.5 transition-transform" />
+                            Play Now
+                        </button>
+                        <button className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white border border-white/15 backdrop-blur-md font-semibold text-xs sm:text-sm md:text-base px-5 py-2.5 sm:px-6 sm:py-3.5 rounded-xl hover:scale-[1.03] active:scale-[0.98] transition-all duration-300 cursor-pointer">
+                            <FaInfoCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                            More Info
+                        </button>
+                    </div>
+                </motion.div>
+            </AnimatePresence>
+
+            {/* Left/Right Navigation Arrows */}
+            <button
+                onClick={handlePrev}
+                className="absolute left-4 sm:left-6 top-1/2 -translate-y-1/2 z-30 hidden sm:flex items-center justify-center w-12 h-12 rounded-full bg-black/35 hover:bg-black/60 border border-white/10 hover:border-white/20 text-white backdrop-blur-md opacity-0 group-hover:opacity-100 transition-all duration-350 hover:scale-105 active:scale-95 cursor-pointer"
+                aria-label="Previous slide"
+            >
+                <FaChevronLeft className="w-4 h-4 text-white/90" />
+            </button>
+            <button
+                onClick={handleNext}
+                className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 z-30 hidden sm:flex items-center justify-center w-12 h-12 rounded-full bg-black/35 hover:bg-black/60 border border-white/10 hover:border-white/20 text-white backdrop-blur-md opacity-0 group-hover:opacity-100 transition-all duration-350 hover:scale-105 active:scale-95 cursor-pointer"
+                aria-label="Next slide"
+            >
+                <FaChevronRight className="w-4 h-4 text-white/90" />
+            </button>
+
+            {/* Smart Timeline Navigation Indicators */}
+            <div className="absolute bottom-6 right-6 sm:bottom-8 sm:right-12 lg:right-24 z-30 flex items-center gap-2.5">
+                {banners.map((_, i) => (
+                    <button
+                        key={i}
+                        onClick={(e) => handleDotClick(i, e)}
+                        className="group relative h-1.5 rounded-full overflow-hidden transition-all duration-500 bg-white/20 cursor-pointer"
+                        style={{ width: i === activeIndex ? '2.5rem' : '0.625rem' }}
+                        aria-label={`Go to slide ${i + 1}`}
+                    >
+                        {i === activeIndex && (
+                            <motion.div
+                                initial={{ scaleX: 0 }}
+                                animate={{ scaleX: 1 }}
+                                transition={{ duration: 6, ease: 'linear' }}
+                                className="absolute inset-0 bg-[#f84464] origin-left"
+                            />
+                        )}
+                    </button>
+                ))}
             </div>
         </div>
-    )
-}
+    );
+};
 
-export default BannerSlider
+export default BannerSlider;

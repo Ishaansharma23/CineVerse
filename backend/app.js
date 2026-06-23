@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 
 const authRoutes = require('./routes/authRoutes.route');
+const movieRoutes = require('./routes/movieRoutes.route');
 
 const app = express();
 
@@ -16,5 +17,6 @@ app.get('/', (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/movies', movieRoutes);
 
 module.exports = app;
