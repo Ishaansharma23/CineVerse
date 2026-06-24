@@ -41,15 +41,34 @@ const Recommended = () => {
                 {/* Recommended movies will be displayed here */}
                 {
                     movies.map((movie, index) => (
-                        <div key={movie.id || index} className="group relative overflow-hidden rounded-lg border border-black/10 bg-[#f7f7f7] shadow-[0_12px_30px_rgba(0,0,0,0.16)] transition duration-300 ease-out hover:scale-[1.01]">
+                        <div key={movie.id || index} className="group relative overflow-hidden rounded-lg border border-black/10 bg-gray-100 shadow-[0_12px_30px_rgba(0,0,0,0.16)] transition duration-300 ease-out hover:scale-[1.01]">
                             <img
                                 src={movie.image || movie.posterUrl || movie.backdropUrl}
                                 alt={movie.title}
-                                className="h-full w-full object-cover transition duration-500 ease-out group-hover:scale-[1.01]"
-                                loading="lazy"
+                                className="h-[340px] w-full object-cover transition duration-500 ease-out group-hover:scale-[1.01]"
+                                loading="lazy" // image late load hoga jaise jaise scroll hoga , img load hoti rhegi 
                             />
                             <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.04),rgba(0,0,0,0.04),rgba(255,255,255,0.04))]" />
-                        </div>
+
+                        <div className="mt-2 px-1">
+                       <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                          <span>⭐ {movie.rating?.toFixed(1) || 'N/A'}</span>
+
+                            <span className="text-gray-500">
+                            {movie.voteCount || 0} Votes
+                            </span>
+                       </div>
+
+                        <h3 className="mt-1 text-lg font-semibold text-gray-900 line-clamp-1">
+                        {movie.title}
+                        </h3>
+
+                     <p className="mt-1 text-sm text-gray-500 line-clamp-2">
+                      {movie.genres?.slice(0, 3).join(' | ') || 'Movie'}
+                    </p>
+                      </div>
+                  </div>
+                        
                     ))
                 }
             </div>
