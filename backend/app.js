@@ -1,12 +1,21 @@
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 
 const authRoutes = require('./routes/authRoutes.route');
 const movieRoutes = require('./routes/movieRoutes.route');
 
+
 const app = express();
 
-app.use(cors());
+app.use(cookieParser());
+const allowedOrigins = ['http://localhost:5173', 'http://localhost:5174'];
+
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true, // Allow cookies to be sent with requests
+}));
+
 app.use(express.json());
 
 app.get('/', (req, res) => {

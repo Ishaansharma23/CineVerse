@@ -9,10 +9,16 @@ const generateToken = (id) => {
 
 const sendAuthResponse = (res, user, statusCode) => {
   const token = generateToken(user._id);
+  // generating cookie
+  res.cookie('token' , token , { // 'token' -> cookie ka naam , token -> cookie ke andar store hone wali value hai.
+    httpOnly: true,  // JavaScript cookie read nahi kar sakti
+    secure: process.env.NODE_ENV === 'production', // Ye cookie sirf HTTPS request ke saath bhejna. in production m
+    sameSite: 'strict', // Ye CSRF attack se bachata hai.
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
+  })
 
   res.status(statusCode).json({
     success: true,
-    token,
     user: {
       id: user._id,
       name: user.name,
@@ -95,6 +101,7 @@ const loginUser = async (req, res) => {
   }
 };
 
+// "Mujhe current logged-in user ka data de do"
 const getMe = async (req, res) => {
   try {
     res.status(200).json({
@@ -109,8 +116,24 @@ const getMe = async (req, res) => {
   }
 };
 
+  const logoutUser = async (req , res) => {
+  res.cookie('token', '', { // logout pr cookie '' krdi yani khali krdi 
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // Ye cookie sirf HTTPS request ke saath bhejna. in production m
+      sameSite: 'strict', 
+      expires: new Date(0),
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Logged out',
+    });
+  }
+
+
 module.exports = {
   registerUser,
   loginUser,
   getMe,
+  logoutUser
 };
