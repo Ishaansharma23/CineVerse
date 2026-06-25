@@ -39,7 +39,8 @@ const theatreSchema = new mongoose.Schema(
       },
     ],
 
-    screens: [
+    screens: [ // screens array me actual Screen object store nahi hoga. 
+    // Sirf uska _id store hoga.
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Screen',
@@ -62,4 +63,4 @@ const theatreSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model('Theatre', theatreSchema);
+module.exports = mongoose.model('Theatre', theatreSchema);// model name

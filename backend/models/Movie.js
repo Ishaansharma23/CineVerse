@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+// populate()->  ObjectId ko uske actual document se replace kar deta hai. sari info dedeta hai mongodb s utha k 
 
 const movieSchema = new mongoose.Schema(
   {

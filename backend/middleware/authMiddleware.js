@@ -34,4 +34,19 @@ const protect = async (req, res, next) => {
   }
 };
 
-module.exports = { protect };
+
+const authorizeRoles = (...roles) => {
+  return (req, res, next) => {
+    if(!roles.includes(req.user.role)){ // Compares req.user.role with the allowed roles in the route("owner")
+      return res.status(403).json({
+        success: false,
+        message : "you are not authorized to acess this resource",
+      });
+      }
+      next();
+    };
+  };
+
+
+
+module.exports = { protect  , authorizeRoles};
