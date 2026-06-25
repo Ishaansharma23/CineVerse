@@ -7,6 +7,7 @@ const {
   updateTheatre,
   deleteTheatre,
   approveTheatre,
+  getMyTheatres,
 } = require("../controllers/theatreController");
 
 
@@ -20,6 +21,7 @@ router.get("/:id", getTheatreById);
 
 // owner routes
 router.post("/" , protect , authorizeRoles("owner") , createTheatre); // owner ko hi acess milega bs
+router.post("/my", protect , authorizeRoles("owner") , getMyTheatres); // owner apne theaters dekh skta h
 router.put("/:id" , protect , authorizeRoles("owner") , updateTheatre   ); // owner ko hi acess milega bs
 router.delete("/:id" , protect , authorizeRoles("owner") , deleteTheatre);
 
