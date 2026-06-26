@@ -19,7 +19,7 @@ const router = express.Router();
 router.get("/", getAllTheatres);
 router.get("/:id", getTheatreById);
 
-// owner routes
+// owner routes , protect -=> check user logged in hai ya nhi , authorizeRoles("owner") => check user role owner hai ya nhi
 router.post("/" , protect , authorizeRoles("owner") , createTheatre); // owner ko hi acess milega bs
 router.post("/my", protect , authorizeRoles("owner") , getMyTheatres); // owner apne theaters dekh skta h
 router.put("/:id" , protect , authorizeRoles("owner") , updateTheatre   ); // owner ko hi acess milega bs

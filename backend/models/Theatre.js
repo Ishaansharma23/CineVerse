@@ -15,7 +15,7 @@ const theatreSchema = new mongoose.Schema(
     },
 
     owner: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: mongoose.Schema.Types.ObjectId, // "Is field me sirf MongoDB ki ObjectId store hogi."
       ref: 'User', // acha wo threatre k owner ko refer kr rha user collection mai 
       required: true,
     },
