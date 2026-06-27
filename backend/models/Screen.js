@@ -14,7 +14,7 @@ const screenSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Theatre",
       required: true,
-      index: true, 
+      index: true, // Theatre ki screens jaldi fetch hongi
     },
 
     // Type of screen
@@ -39,15 +39,16 @@ const screenSchema = new mongoose.Schema(
     },
 
     // Total seats in the screen
-    // (Can also be calculated using totalRows * seatsPerRow)
+    // Automatically calculate using totalRows * seatsPerRow
+    // Owner ko ye manually bhejne ki zarurat nahi hai.
     totalSeats: {
       type: Number,
-      required: true,
-      min: 1,
+      default: 0,
     },
 
     // Permanent seat layout of this screen
-    // Booking status will NOT be stored here.
+    // Booking status yaha store nahi hoga.
+    // Sirf screen ka permanent layout hoga.
     seatLayout: [
       {
         // Row name (A, B, C...)
@@ -56,24 +57,29 @@ const screenSchema = new mongoose.Schema(
           required: true,
         },
 
-        // Seat number within that row
-        seatNumber: {
-          type: Number,
-          required: true,
-        },
+        // Ek row ke andar sari seats hongi
+        seats: [
+          {
+            // Seat number within that row
+            seatNumber: {
+              type: Number,
+              required: true,
+            },
 
-        // Complete seat label (A1, A2, B5...)
-        seatLabel: {
-          type: String,
-          required: true,
-        },
+            // Complete seat label (A1, A2, B5...)
+            seatLabel: {
+              type: String,
+              required: true,
+            },
 
-        // Seat category
-        seatType: {
-          type: String,
-          enum: ["Regular", "Premium", "Recliner"],
-          default: "Regular",
-        },
+            // Seat category
+            seatType: {
+              type: String,
+              enum: ["Regular", "Premium", "Recliner"],
+              default: "Regular",
+            },
+          },
+        ],
       },
     ],
 
@@ -82,10 +88,11 @@ const screenSchema = new mongoose.Schema(
     features: [
       {
         type: String,
+        trim: true,
       },
     ],
 
-    // Whether this screen is active or under maintenance
+    // Whether this screen is active 
     isActive: {
       type: Boolean,
       default: true,
@@ -97,10 +104,51 @@ const screenSchema = new mongoose.Schema(
   }
 );
 
-// Automatically calculate total seats before saving
+// Automatically calculate total seats
+// Automatically generate seat layout before saving
 screenSchema.pre("save", function (next) {
+
+  // Automatically calculate total seats
   this.totalSeats = this.totalRows * this.seatsPerRow;
+
+  // Agar seatLayout already bana hua hai
+  // to dubara generate mat karo
+  if (this.seatLayout.length > 0) {
+    return next();
+  }
+
+  const layout = [];
+
+  // Rows generate karna (A, B, C...)
+  for (let i = 0; i < this.totalRows; i++) {
+
+    const rowLetter = String.fromCharCode(65 + i);
+
+    const seats = [];
+
+    // Har row ki seats generate karna
+    for (let j = 1; j <= this.seatsPerRow; j++) {
+
+      seats.push({
+        seatNumber: j,
+        seatLabel: `${rowLetter}${j}`,
+        seatType: "Regular",
+      });
+
+    }
+
+    layout.push({
+      row: rowLetter,
+      seats,
+    });
+
+  }
+
+  // seatlayout wala part database me save hoga
+  this.seatLayout = layout;
+
   next();
+
 });
 
 module.exports = mongoose.model("Screen", screenSchema);
