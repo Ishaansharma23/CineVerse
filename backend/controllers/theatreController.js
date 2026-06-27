@@ -80,6 +80,14 @@ const getAllTheatres = async (req , res) => {
 } 
 
 // ab get theatre by id
+// Future me isko aise kar sakta hai:
+
+// const theatre = await Theatre.findOne({
+//     _id: theatreId,
+//     isActive: true,
+// });
+
+// Taaki deleted (inactive) theatre bhi na dikhe.
 const getTheatreById = async (req , res) => {
     const theatreId = req.params.id; // frontend se id mil rhi hai url se
     try{
@@ -246,6 +254,47 @@ const deleteTheatre = async (req, res) => {
     }
 };
 
+// ab approve krna hai theatre ko joki sirf admin hi kr skta hai usi k liye hai ye logic
+const approveTheatre = async (req , res) => {
+    const theatreId = req.params.id;
+
+    try{
+        // pehle theatre ko find krenge
+        const theatre = await Theatre.findById(theatreId);
+        if(!theatre){
+            return res.status(404).json({
+                success: false,
+                message: "Theatre not found",
+            });
+        }
+
+        // Check if theatre is already approved
+        if (theatre.status === "approved") {
+            return res.status(400).json({
+                success: false,
+                message: "Theatre is already approved",
+            });
+        }
+
+        // ab approve krenge 
+        theatre.status = "approved";
+
+        // updated theatre ko database me save kar do
+        await theatre.save();
+
+        res.status(200).json({
+            success: true,
+            message: "Theatre approved successfully",
+            theatre,
+        });
+    }catch(error){
+        res.status(500).json({
+            success: false,
+            message: error.message,
+        });
+    }
+}
+
 module.exports = {
     createTheatre,
     getMyTheatres,
@@ -253,4 +302,5 @@ module.exports = {
     getTheatreById,
     updateTheatre,
     deleteTheatre,
+    approveTheatre,
 };
