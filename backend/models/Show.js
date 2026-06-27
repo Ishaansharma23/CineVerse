@@ -1,32 +1,43 @@
-const mongoose = require('mongoose');
+    const mongoose = require("mongoose");
 
-const showSchema = new mongoose.Schema({
-    movie: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Movie",
-    required: true
+    //** */ Kaunsi Movie Kaunsi Screen Kitne baje
+
+    const showSchema = new mongoose.Schema({
+    // Ye show kis movie ka hai?
+    movie: { 
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Movie",
+        required: true,
     },
-    screen:{
+    // Ye show kis Audi (Screen) me chal raha hai?
+    screen: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Screen",
-        required: true
+        required: true,
     },
-    date:{
+    date: {
         type: Date,
-        required: true
+        required: true,
     },
-    showTime:{
+    startTime: {
         type: String,
-        required: true
+        required: true,
     },
-    price:{
-        type: Number,
-        required: true
+    endTime: {
+        type: String,
+        required: true,
     },
-    seats:{
+    price: {
         type: Number,
-        required: true
-    }
-})
+        required: true,
+    },  
+    status: {
+    type:String,
+    enum:["scheduled","cancelled","completed"],
+    default:"scheduled"
 
-module.exports = mongoose.model("show" , showSchema);
+    },
+    timestamps:true,
+    });
+
+    module.exports = mongoose.model("Show", showSchema);
