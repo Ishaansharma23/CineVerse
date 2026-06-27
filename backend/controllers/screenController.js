@@ -252,7 +252,7 @@ const deleteScreen = async (req , res ) => {
 
         res.status(200).json({
             success: true,
-            message: "Screen deleted successfully",
+            message: "Screen deleted successfully",s
         });
     }catch(error){
         res.status(500).json({
