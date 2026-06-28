@@ -5,6 +5,8 @@ const cookieParser = require('cookie-parser');
 const authRoutes = require('./routes/authRoutes.route');
 const movieRoutes = require('./routes/movieRoutes.route');
 const theatreRoutes = require('./routes/theatreRoutes.route')
+const bookingRoutes = require("./routes/bookingRoutes.route");
+const showRoutes = require("./routes/showRoutes.route");
 
 
 const app = express();
@@ -30,5 +32,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/movies', movieRoutes);
 // theatre routes 
 app.use("/api/theatres", theatreRoutes);
-
+// Booking routes
+app.use("/api/bookings", bookingRoutes);
+// show routes
+app.use("/api/shows", showRoutes);
 module.exports = app;
