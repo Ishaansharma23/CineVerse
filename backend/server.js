@@ -3,11 +3,16 @@ const connectDB = require('./config/db');
 const app = require('./app');
 const { scheduleMovieSyncJob } = require('./jobs/movieSync.job');
 const { syncAllMoviesFromTmdb } = require('./services/movieSyncService');
+const {connectRedis} = require('./config/redis');
 
 const PORT = process.env.PORT || 5000;
 
 connectDB()
-  .then(() => {
+  .then(async () => {
+
+     // Redis connect
+    await connectRedis();
+
     scheduleMovieSyncJob();
 
     return syncAllMoviesFromTmdb().catch((error) => {
