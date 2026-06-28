@@ -37,6 +37,7 @@ const protect = async (req, res, next) => {
 
 const authorizeRoles = (...roles) => {
   return (req, res, next) => {
+    // db s fetch horha req.user.role wala scene upr dekh protect m req.user ma user store kre hum 
     if(!roles.includes(req.user.role)){ // Compares req.user.role with the allowed roles in the route("owner")
       return res.status(403).json({
         success: false,
