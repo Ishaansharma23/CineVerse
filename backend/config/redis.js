@@ -22,5 +22,5 @@ const connectRedis = async () => {
 
 module.exports = {
     redisClient,
-    connectRedis,
+    connectRedis, // used by server.js
 };

@@ -1,9 +1,9 @@
 const Booking = require("../models/Booking");
 const Show = require("../models/Show");
+const { lockSeat, unlockSeat } = require("../services/seatLockService");
 
 const createBooking = async (req, res) => {
   try {
-
     const { showId, seats } = req.body;
 
     // Required fields check karo
@@ -32,6 +32,31 @@ const createBooking = async (req, res) => {
       });
     }
 
+    // Jo seats successfully lock ho gayi unhe store karenge
+    const lockedSeats = [];
+
+    for (const seat of seats) {
+      // Redis me seat lock karne ki koshish karo
+      const locked = await lockSeat(showId, seat, req.user._id);
+
+      // Agar seat pehle se locked hai
+      if (!locked) {
+        // Jo seats pehle lock ho chuki thi unhe unlock karo as tum age ki lock seat b book kr rhe the
+        // joki nahi hoskti already kisi n lock kr rkhi to jo tumne lock kr rkhi use b hata dete 
+        for (const lockedSeat of lockedSeats) {
+          await unlockSeat(showId, lockedSeat);
+        }
+
+        return res.status(400).json({
+          success: false,
+          message: `Seat ${seat} is already locked`,
+        });
+      }
+
+      // Successfully locked seat ko array me add karo
+      lockedSeats.push(seat);
+    }
+
     // Total amount calculate karo
     const totalAmount = seats.length * show.price;
 
@@ -40,7 +65,6 @@ const createBooking = async (req, res) => {
 
     // Booking create karo
     const booking = await Booking.create({
-
       // Logged-in user
       user: req.user._id,
 
@@ -61,7 +85,6 @@ const createBooking = async (req, res) => {
 
       // Booking successful create ho gayi
       bookingStatus: "pending",
-
     });
 
     res.status(201).json({
@@ -69,9 +92,7 @@ const createBooking = async (req, res) => {
       message: "Booking created successfully",
       booking,
     });
-
   } catch (error) {
-
     console.log("Error creating booking:", error);
 
     res.status(500).json({
@@ -79,14 +100,12 @@ const createBooking = async (req, res) => {
       message: "Internal server error",
       error: error.message,
     });
-
   }
 };
 
 // Get all bookings of logged-in user
 const getMyBookings = async (req, res) => {
   try {
-
     // Logged-in user ki saari bookings fetch karo
     const bookings = await Booking.find({
       user: req.user._id,
@@ -111,9 +130,7 @@ const getMyBookings = async (req, res) => {
       message: "My bookings fetched successfully",
       bookings,
     });
-
   } catch (error) {
-
     console.log("Error fetching bookings:", error);
 
     res.status(500).json({
@@ -121,30 +138,27 @@ const getMyBookings = async (req, res) => {
       message: "Internal server error",
       error: error.message,
     });
-
   }
 };
 
 // Get single booking by id
 const getBookingById = async (req, res) => {
   try {
-
     // URL se booking id lo
     const bookingId = req.params.id;
 
     // Booking find karo aur show, movie, screen ki details bhi bhejo
-    const booking = await Booking.findById(bookingId)
-      .populate({
-        path: "show",
-        populate: [
-          {
-            path: "movie",
-          },
-          {
-            path: "screen",
-          },
-        ],
-      });
+    const booking = await Booking.findById(bookingId).populate({
+      path: "show",
+      populate: [
+        {
+          path: "movie",
+        },
+        {
+          path: "screen",
+        },
+      ],
+    });
 
     if (!booking) {
       return res.status(404).json({
@@ -166,9 +180,7 @@ const getBookingById = async (req, res) => {
       message: "Booking fetched successfully",
       booking,
     });
-
   } catch (error) {
-
     console.log("Error fetching booking:", error);
 
     res.status(500).json({
@@ -176,14 +188,12 @@ const getBookingById = async (req, res) => {
       message: "Internal server error",
       error: error.message,
     });
-
   }
 };
 
 // Cancel booking
 const cancelBooking = async (req, res) => {
   try {
-
     // URL se booking id lo
     const bookingId = req.params.id;
 
@@ -206,15 +216,15 @@ const cancelBooking = async (req, res) => {
     }
 
     // Agar booking pehle hi cancelled hai
-   if (
-    booking.bookingStatus === "cancelled" ||
-    booking.bookingStatus === "expired"
-) {
-    return res.status(400).json({
+    if (
+      booking.bookingStatus === "cancelled" ||
+      booking.bookingStatus === "expired"
+    ) {
+      return res.status(400).json({
         success: false,
         message: "Booking cannot be cancelled",
-    });
-}
+      });
+    }
 
     // Booking cancel karo
     booking.bookingStatus = "cancelled";
@@ -230,9 +240,7 @@ const cancelBooking = async (req, res) => {
       message: "Booking cancelled successfully",
       booking,
     });
-
   } catch (error) {
-
     console.log("Error cancelling booking:", error);
 
     res.status(500).json({
@@ -240,8 +248,12 @@ const cancelBooking = async (req, res) => {
       message: "Internal server error",
       error: error.message,
     });
-
   }
 };
 
-module.exports = { getMyBookings , getBookingById , createBooking , cancelBooking };
+module.exports = {
+  getMyBookings,
+  getBookingById,
+  createBooking,
+  cancelBooking,
+};
