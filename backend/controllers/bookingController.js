@@ -35,25 +35,26 @@ const createBooking = async (req, res) => {
     // Jo seats successfully lock ho gayi unhe store karenge
     const lockedSeats = [];
 
+    // Har selected seat ko lock karne ki koshish karo
     for (const seat of seats) {
-      // Redis me seat lock karne ki koshish karo
-      const locked = await lockSeat(showId, seat, req.user._id);
 
-      // Agar seat pehle se locked hai
-      if (!locked) {
-        // Jo seats pehle lock ho chuki thi unhe unlock karo as tum age ki lock seat b book kr rhe the
-        // joki nahi hoskti already kisi n lock kr rkhi to jo tumne lock kr rkhi use b hata dete 
-        for (const lockedSeat of lockedSeats) {
-          await unlockSeat(showId, lockedSeat);
-        }
+      // Redis me seat lock karo
+      const lockResult = await lockSeat(
+        showId,
+        seat,
+        req.user._id
+      );
+
+      // Agar kisi aur user ne seat lock kar rakhi hai
+      if (!lockResult.success) {
 
         return res.status(400).json({
           success: false,
-          message: `Seat ${seat} is already locked`,
+          message: `Seat ${seat} is already locked by another user`,
         });
       }
 
-      // Successfully locked seat ko array me add karo
+      // Successfully locked seat ko array me store karo
       lockedSeats.push(seat);
     }
 
@@ -65,6 +66,7 @@ const createBooking = async (req, res) => {
 
     // Booking create karo
     const booking = await Booking.create({
+
       // Logged-in user
       user: req.user._id,
 
@@ -83,7 +85,7 @@ const createBooking = async (req, res) => {
       // Payment abhi pending hai
       paymentStatus: "pending",
 
-      // Booking successful create ho gayi
+      // Booking status
       bookingStatus: "pending",
     });
 
@@ -92,6 +94,7 @@ const createBooking = async (req, res) => {
       message: "Booking created successfully",
       booking,
     });
+
   } catch (error) {
     console.log("Error creating booking:", error);
 
