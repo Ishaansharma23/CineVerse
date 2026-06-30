@@ -1,6 +1,6 @@
 const Booking = require("../models/Booking");
 const Show = require("../models/Show");
-const { lockSeat, unlockSeat } = require("../services/seatLockService");
+const { lockSeat, unlockSeat , getLockedSeats , isSeatLocked} = require("../services/seatLockService");
 
 const createBooking = async (req, res) => {
   try {
@@ -254,9 +254,75 @@ const cancelBooking = async (req, res) => {
   }
 };
 
+// get seatlayout jo frontend pr dikhega mongodb or redis both combined kitni seats hai (Booked + Locked Seats)
+const getSeatLayout = async (req , res) => {
+  try {
+    
+    // URL se show id lo
+    const { showId } = req.params;
+
+    // check kro show exist krta h y ni
+    const show = await Show.findById(showId);
+
+    // show nhi mila to
+    if(!show) {
+      return res.status(404).json({
+        success: false,
+        message: "Show not found",
+      })
+    }
+
+    // MongoDB se sirf confirmed bookings nikalo
+    const bookings = await Booking.find({
+      show: showId,
+      paymentStatus: "completed",
+      bookingStatus: "confirmed",
+    });
+
+    // MongoDB se booked seats store karenge, as mongodb obj deta hi jisme or b data hota hai pr hme sirf seats chahiye
+    const bookedSeats = [];
+
+    // Har booking ke andar loop
+    for (const booking of bookings) {
+      // jitni seats hain unhe array me add karo us booking k andr 
+      for (const seat of booking.seats) {
+
+        bookedSeats.push(seat);
+
+      }
+    }
+
+
+    // Redis se temporary locked seats lao
+    const lockedSeats = await getLockedSeats(showId);
+
+    res.status(200).json({
+      success: true,
+      message: "Seat layout fetched successfully",
+
+      // MongoDB wali permanent booked seats
+      bookedSeats,
+
+      // Redis wali temporary locked seats
+      lockedSeats,
+    });
+
+
+  } catch (error) {
+      console.log("Error fetching seat layout:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+}
+
 module.exports = {
   getMyBookings,
   getBookingById,
   createBooking,
   cancelBooking,
+  getSeatLayout,
 };
