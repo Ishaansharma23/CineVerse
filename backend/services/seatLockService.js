@@ -5,6 +5,7 @@ const lockSeat = async (showId, seatNumber, userId) => {
   // Har show aur seat ki unique Redis key
   const key = `seat:${showId}:${seatNumber}`;
 
+  //(((((OWNER SHIP CHECK )))))
   // Pehle check karo seat Redis me already locked hai ya nahi.
   // Agar locked hai to kis user ne lock ki hai wo bhi pata chalega.
   // Kyuki SET NX sirf ye batata hai ki key create hui ya nahi,
