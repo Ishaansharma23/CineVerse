@@ -4,6 +4,7 @@ const app = require('./app');
 const { scheduleMovieSyncJob } = require('./jobs/movieSync.job');
 const { syncAllMoviesFromTmdb } = require('./services/movieSyncService');
 const {connectRedis} = require('./config/redis');
+const {bookingExpiryJob} = require('./jobs/bookingExpiry.job');
 
 const PORT = process.env.PORT || 5000;
 
@@ -14,6 +15,9 @@ connectDB()
     await connectRedis();
 
     scheduleMovieSyncJob();
+
+    // Booking Expiry Cron
+    bookingExpiryJob();
 
     return syncAllMoviesFromTmdb().catch((error) => {
       console.error('Initial TMDB sync failed:', error.message);
