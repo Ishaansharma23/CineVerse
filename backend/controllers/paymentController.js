@@ -1,7 +1,7 @@
 const Booking = require("../models/bookings");
 const razorpay = require("../config/razorpay");
 const crypto = require("crypto");
-const { unlockSeat } = require("../services/seatLockService");
+const { completeBookingPayment } = require("../services/paymentService");
 
 // Sirf existing booking ke liye payment start karta hai. Booking exist karti? YES Pending hai? YES Razorpay Order Create
 
@@ -125,19 +125,7 @@ const verifyPayment = async (req, res) => {
       });
     }
 
-    // Payment details save karo
-    booking.paymentId = razorpay_payment_id;
-    booking.paymentSignature = razorpay_signature;
-
-    booking.paymentStatus = "paid";
-    booking.bookingStatus = "booked";
-
-    await booking.save();
-
-    // Redis lock hata do
-    for (const seat of booking.seats) {
-      await unlockSeat(booking.show.toString(), seat);
-    }
+    await completeBookingPayment( booking, razorpay_payment_id, razorpay_signature,);
 
     res.status(200).json({
       success: true,
@@ -155,5 +143,4 @@ const verifyPayment = async (req, res) => {
   }
 };
 
-
-module.exports = {createOrder, verifyPayment}
+module.exports = { createOrder, verifyPayment };
