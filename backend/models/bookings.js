@@ -33,6 +33,17 @@ const bookingSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    // Razorpay order id
+    orderId: {
+      type: String,
+      default: null,
+    },
+
+    // Razorpay payment signature
+    paymentSignature: {
+      type: String,
+      default: null,
+    },
 
     // Har booking ka unique booking id
     bookingId: {
@@ -54,7 +65,7 @@ const bookingSchema = new mongoose.Schema(
       enum: ["pending", "booked", "cancelled", "expired"],
       default: "pending",
     },
-    
+
     // Seat lock expire kab hoga (Redis flow me use hoga)
     bookingExpiresAt: {
       type: Date,
