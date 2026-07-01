@@ -1,6 +1,11 @@
 const Booking = require("../models/Booking");
 const Show = require("../models/Show");
-const { lockSeat, unlockSeat , getLockedSeats , isSeatLocked} = require("../services/seatLockService");
+const {
+  lockSeat,
+  unlockSeat,
+  getLockedSeats,
+  isSeatLocked,
+} = require("../services/seatLockService");
 
 const createBooking = async (req, res) => {
   try {
@@ -37,17 +42,11 @@ const createBooking = async (req, res) => {
 
     // Har selected seat ko lock karne ki koshish karo
     for (const seat of seats) {
-
       // Redis me seat lock karo
-      const lockResult = await lockSeat(
-        showId,
-        seat,
-        req.user._id
-      );
+      const lockResult = await lockSeat(showId, seat, req.user._id);
 
       // Agar kisi aur user ne seat lock kar rakhi hai
       if (!lockResult.success) {
-
         return res.status(400).json({
           success: false,
           message: `Seat ${seat} is already locked by another user`,
@@ -66,7 +65,6 @@ const createBooking = async (req, res) => {
 
     // Booking create karo
     const booking = await Booking.create({
-
       // Logged-in user
       user: req.user._id,
 
@@ -87,6 +85,9 @@ const createBooking = async (req, res) => {
 
       // Booking status
       bookingStatus: "pending",
+
+      // 5 minute baad booking expire ho jayegi agar payment nahi hui
+      bookingExpiresAt: new Date(Date.now() + 5 * 60 * 1000),
     });
 
     res.status(201).json({
@@ -94,7 +95,6 @@ const createBooking = async (req, res) => {
       message: "Booking created successfully",
       booking,
     });
-
   } catch (error) {
     console.log("Error creating booking:", error);
 
@@ -255,9 +255,8 @@ const cancelBooking = async (req, res) => {
 };
 
 // get seatlayout jo frontend pr dikhega mongodb or redis both combined kitni seats hai (Booked + Locked Seats)
-const getSeatLayout = async (req , res) => {
+const getSeatLayout = async (req, res) => {
   try {
-    
     // URL se show id lo
     const { showId } = req.params;
 
@@ -265,18 +264,20 @@ const getSeatLayout = async (req , res) => {
     const show = await Show.findById(showId);
 
     // show nhi mila to
-    if(!show) {
+    if (!show) {
       return res.status(404).json({
         success: false,
         message: "Show not found",
-      })
+      });
     }
 
-    // MongoDB se sirf confirmed bookings nikalo
+    // MongoDB se sirf successful booked seats nikalo
     const bookings = await Booking.find({
       show: showId,
-      paymentStatus: "completed",
-      bookingStatus: "confirmed",
+      // Sirf jinki payment successful hui hai
+      paymentStatus: "paid",
+      // Sirf confirmed(booked) bookings
+      bookingStatus: "booked",
     });
 
     // MongoDB se booked seats store karenge, as mongodb obj deta hi jisme or b data hota hai pr hme sirf seats chahiye
@@ -284,14 +285,11 @@ const getSeatLayout = async (req , res) => {
 
     // Har booking ke andar loop
     for (const booking of bookings) {
-      // jitni seats hain unhe array me add karo us booking k andr 
+      // jitni seats hain unhe array me add karo us booking k andr
       for (const seat of booking.seats) {
-
         bookedSeats.push(seat);
-
       }
     }
-
 
     // Redis se temporary locked seats lao
     const lockedSeats = await getLockedSeats(showId);
@@ -306,10 +304,8 @@ const getSeatLayout = async (req , res) => {
       // Redis wali temporary locked seats
       lockedSeats,
     });
-
-
   } catch (error) {
-      console.log("Error fetching seat layout:", error);
+    console.log("Error fetching seat layout:", error);
 
     res.status(500).json({
       success: false,
@@ -317,7 +313,7 @@ const getSeatLayout = async (req , res) => {
       error: error.message,
     });
   }
-}
+};
 
 module.exports = {
   getMyBookings,
