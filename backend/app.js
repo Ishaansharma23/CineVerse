@@ -13,6 +13,13 @@ const paymentRoutes = require("./routes/paymentRoutes.route");
 
 const app = express();
 
+//  Ye line = (Webhook ke liye raw body)
+app.use(
+  "/api/payment/webhook",
+  express.raw({ type: "application/json" })
+);
+
+
 app.use(cookieParser());
 const allowedOrigins = ['http://localhost:5173', 'http://localhost:5174'];
 

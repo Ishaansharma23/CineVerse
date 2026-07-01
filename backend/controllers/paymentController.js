@@ -81,6 +81,8 @@ const createOrder = async (req, res) => {
   }
 };
 
+
+// ** -> Ye payment asli hai? y chekc kr rha jo bheji h details razorpay n hi bheji n postman pr kisi n to nhi 
 // Hum payment verify nahi kar rahe.
 // Hum Razorpay ke RESPONSE ko verify kar rahe hain.
 // Ye payment success ka response sach me Razorpay ne bheja hai ya kisi ne fake request bheji hai?
@@ -143,4 +145,90 @@ const verifyPayment = async (req, res) => {
   }
 };
 
-module.exports = { createOrder, verifyPayment };
+// Razorpay -> Entire Request Body + Webhook Secret + Signature
+const razorpayWebhook = async (req, res) => {
+  try {
+    // Razorpay request bhejta hai. Wo signature HTTP Header me bhejta hai
+    // Header → Signature
+    // Body → Event + Payment Data
+    // Razorpay ki webhook signature
+    const webhookSignature = req.headers["x-razorpay-signature"];
+
+
+    // Raw request body, Ye normal JSON nahi hai. actually Buffer type ka hota
+    const body = req.body;// Body me actual payment data hota hai.
+
+    // Backend apni webhook signature generate karega
+    const generatedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET)
+      .update(body)
+      .digest("hex");
+
+    // Signature verify
+    if (generatedSignature !== webhookSignature) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid webhook signature",
+      });
+    }
+
+
+    // ** Buffer = Raw binary data (bytes) jo network se aata hai. Hum webhook me Buffer isliye
+    //  use karte hain kyunki signature original bytes par hi generate hoti hai.
+    //  Agar pehle JSON bana diya jaye, to original data change ho sakta hai aur signature verify nahi hogi.
+    // Buffer ko JSON object me convert karo, body buffer thi
+
+const event = JSON.parse(body.toString());
+
+// Sirf payment.captured event process karenge, webhook bht events bhejta jaise payment.failed, refund.created
+if (event.event !== "payment.captured") { //Payment successfully complete. Captured = Paise successfully merchant (tumhare account) ke liye collect ho gaye.
+  return res.status(200).json({
+    success: true,
+    message: "Event ignored",
+  });
+}
+
+// Payment details nikalo , (Razorpay kis event ki notification bhej raha hai?) - event
+const payment = event.payload.payment.entity; // Ye actual payment object hai. entity, Ye payment wali information hai. - payment
+
+
+const booking = await Booking.findOne({
+  orderId: payment.order_id,
+});
+
+if (!booking) {
+  return res.status(404).json({
+    success: false,
+    message: "Booking not found",
+  });
+}
+
+// Fir duplicate webhook handle karo: Razorpay kabhi-kabhi same webhook dobara bhej sakta hai.
+if (booking.paymentStatus === "paid") {
+  return res.status(200).json({
+    success: true,
+    message: "Payment already processed",
+  });
+}
+await completeBookingPayment(
+  booking,
+  payment.id,
+  webhookSignature
+);
+
+return res.status(200).json({
+  success: true,
+  message: "Webhook processed successfully",
+});
+  } catch (error) {
+    console.log("Webhook Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Webhook failed",
+    });
+  }
+};
+
+
+module.exports = { createOrder, verifyPayment , razorpayWebhook };

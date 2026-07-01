@@ -1,9 +1,11 @@
+// Payment genuine mil gayi, ab booking finalize karo.
+
 const { unlockSeat } = require("./seatLockService");
 
 // Booking ko payment successful banane ka common function -> direct webhook bakend s verify krega
 // payment controller wale m frontend backend dono use krega  or verify krega payment
 const completeBookingPayment = async (booking, paymentId, paymentSignature) => {
-  // Payment details save karo mongodb m booking wala schema/model usme field h ye 
+  // Payment details save karo mongodb m booking wala schema/model usme field h ye
   booking.paymentId = paymentId;
   booking.paymentSignature = paymentSignature;
 
@@ -21,6 +23,7 @@ const completeBookingPayment = async (booking, paymentId, paymentSignature) => {
 
   return booking;
 };
+
 
 module.exports = {
   completeBookingPayment,
