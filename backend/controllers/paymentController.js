@@ -3,6 +3,7 @@ const razorpay = require("../config/razorpay");
 const crypto = require("crypto");
 const { completeBookingPayment } = require("../services/paymentService");
 
+
 // Sirf existing booking ke liye payment start karta hai. Booking exist karti? YES Pending hai? YES Razorpay Order Create
 
 // ab razorpay order create kro

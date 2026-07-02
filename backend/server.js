@@ -2,12 +2,13 @@ require('dotenv').config();
 const connectDB = require('./config/db');
 const http = require('http');
 const { Server } = require('socket.io');
-const {socketInit} = require("./config/socket.js")
+const {initSocket} = require("./config/socket.js")
 const app = require('./app');
 const { scheduleMovieSyncJob } = require('./jobs/movieSync.job');
 const { syncAllMoviesFromTmdb } = require('./services/movieSyncService');
 const {connectRedis} = require('./config/redis');
 const {bookingExpiryJob} = require('./jobs/bookingExpiry.job');
+const registerSocketHandlers = require("./socket/socketHandler");
 
 const PORT = process.env.PORT || 5000;
 
@@ -25,15 +26,7 @@ const io = new Server(server, {
 });
 
 initSocket(io);
-
-// Test connection
-io.on("connection", (socket) => {
-  console.log("User Connected:", socket.id);
-
-  socket.on("disconnect", () => {
-    console.log("User Disconnected:", socket.id);
-  });
-});
+registerSocketHandlers(io);
 
 connectDB()
   .then(async () => {

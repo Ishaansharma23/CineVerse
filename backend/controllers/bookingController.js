@@ -6,6 +6,7 @@ const {
   getLockedSeats,
   isSeatLocked,
 } = require("../services/seatLockService");
+const { getIO } = require("../config/socket");
 
 const createBooking = async (req, res) => {
   try {
@@ -88,6 +89,14 @@ const createBooking = async (req, res) => {
 
       // 5 minute baad booking expire ho jayegi agar payment nahi hui
       bookingExpiresAt: new Date(Date.now() + 5 * 60 * 1000),
+    });
+
+    const io = getIO();
+
+    io.to(showId).emit("seat-locked", {
+      showId,
+      seats,
+      lockedBy: req.user._id,
     });
 
     res.status(201).json({
