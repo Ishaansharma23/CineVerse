@@ -16,12 +16,17 @@ const completeBookingPayment = async (booking, paymentId, paymentSignature) => {
   booking.bookingStatus = "booked";
 
   // Show aur Movie ki details lao
-  await booking.populate({
+await booking.populate([
+  {
+    path: "user",
+  },
+  {
     path: "show",
     populate: {
       path: "movie",
     },
-  });
+  },
+]);
 
   // QR Generate karo
   booking.ticketQr = await generateTicketQr(booking);

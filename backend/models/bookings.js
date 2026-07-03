@@ -108,6 +108,10 @@ const bookingSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    checkedInAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
