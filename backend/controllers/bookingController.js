@@ -1,11 +1,15 @@
 const Booking = require("../models/Booking");
 const Show = require("../models/Show");
+
+const razorpay = require("../config/razorpay");
+const { calculateRefundAmount } = require("../services/refundService");
+
 const {
   lockSeat,
   unlockSeat,
   getLockedSeats,
-  isSeatLocked,
 } = require("../services/seatLockService");
+
 const { getIO } = require("../config/socket");
 
 const createBooking = async (req, res) => {
@@ -203,6 +207,7 @@ const getBookingById = async (req, res) => {
   }
 };
 
+
 // Cancel booking
 const cancelBooking = async (req, res) => {
   try {
@@ -218,9 +223,6 @@ const cancelBooking = async (req, res) => {
         message: "Booking not found",
       });
     }
-
-    // Yaad rakh lo ki booking pehle pending thi ya nahi
-    const wasPending = booking.paymentStatus === "pending";
 
     // Check karo logged-in user isi booking ka owner hai ya nahi
     if (booking.user.toString() !== req.user._id.toString()) {
@@ -241,42 +243,146 @@ const cancelBooking = async (req, res) => {
       });
     }
 
-    // Booking cancel karo
-    booking.bookingStatus = "cancelled";
-    booking.paymentStatus = "cancelled";
+    // CASE 1 : Payment Pending
 
-    // Agar payment ho chuki thi to future me refund process hoga
-    // booking.paymentStatus = "refunded";
+    if (booking.paymentStatus === "pending") {
 
-    // Updated booking save karo
-    await booking.save();
+      // Booking cancel karo
+      booking.bookingStatus = "cancelled";
+      booking.paymentStatus = "failed";
 
-    if (wasPending) {
+      await booking.save();
+
       // Redis unlock
       for (const seat of booking.seats) {
-        await unlockSeat(booking.show.toString(), seat);
+        await unlockSeat(
+          booking.show.toString(),
+          seat
+        );
       }
 
-      // Socket
+      // Frontend ko realtime update bhejo
       const io = getIO();
 
-      io.to(booking.show.toString()).emit("seat-unlocked", {
-        showId: booking.show,
-        seats: booking.seats,
+      io.to(booking.show.toString()).emit(
+        "seat-unlocked",
+        {
+          showId: booking.show,
+          seats: booking.seats,
+        }
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: "Booking cancelled successfully",
+        booking,
       });
     }
 
+    // ============================
+    // CASE 2 : Payment Paid
+    // ============================
+
+    // Show find karo
+    const show = await Show.findById(
+      booking.show
+    );
+
+    if (!show) {
+      return res.status(404).json({
+        success: false,
+        message: "Show not found",
+      });
+    }
+
+    // Refund amount calculate karo
+    const refund = await calculateRefundAmount(
+      booking,
+      show
+    );
+
+    // Refund policy check
+    if (!refund.eligible) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Booking cannot be cancelled within 2 hours of show time",
+      });
+    }
+
+    // Razorpay refund create karo
+    const razorpayRefund =
+      await razorpay.payments.refund(
+        booking.paymentId,
+        {
+          // Razorpay paisa me amount leta hai
+          amount:
+            refund.refundAmount * 100,
+        }
+      );
+
+    // Booking update karo
+    booking.bookingStatus = "cancelled";
+
+    booking.paymentStatus = "refunded";
+
+    booking.refundId =
+      razorpayRefund.id;
+
+    booking.refundAmount =
+      refund.refundAmount;
+
+    booking.refundStatus =
+      "processed";
+
+    booking.cancelledAt =
+      new Date();
+
+    await booking.save();
+
+    // Redis unlock
+    for (const seat of booking.seats) {
+      await unlockSeat(
+        booking.show.toString(),
+        seat
+      );
+    }
+
+    // Frontend ko realtime update bhejo
+    const io = getIO();
+
+    io.to(booking.show.toString()).emit(
+      "seat-unlocked",
+      {
+        showId: booking.show,
+        seats: booking.seats,
+      }
+    );
+
     res.status(200).json({
       success: true,
-      message: "Booking cancelled successfully",
+      message:
+        "Booking cancelled successfully",
+
+      refundPercentage:
+        refund.refundPercentage,
+
+      refundAmount:
+        refund.refundAmount,
+
       booking,
     });
+
   } catch (error) {
-    console.log("Error cancelling booking:", error);
+    console.log(
+      "Error cancelling booking:",
+      error
+    );
 
     res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message:
+        "Internal server error",
       error: error.message,
     });
   }

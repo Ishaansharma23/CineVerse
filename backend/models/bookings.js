@@ -96,6 +96,18 @@ const bookingSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    // Ticket QR Image (Base64)
+    ticketQr: {
+      type: String,
+      default: null,
+    },
+
+    // Theatre me entry ho chuki ya nahi
+    checkedIn: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

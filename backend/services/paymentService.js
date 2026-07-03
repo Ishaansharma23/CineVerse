@@ -1,5 +1,6 @@
 // Payment genuine mil gayi, ab booking finalize karo.
 
+const { generateTicketQr } = require("./qrService");
 const { unlockSeat } = require("./seatLockService");
 const { getIO } = require("../config/socket");
 
@@ -14,20 +15,31 @@ const completeBookingPayment = async (booking, paymentId, paymentSignature) => {
   booking.paymentStatus = "paid";
   booking.bookingStatus = "booked";
 
+  // Show aur Movie ki details lao
+  await booking.populate({
+    path: "show",
+    populate: {
+      path: "movie",
+    },
+  });
+
+  // QR Generate karo
+  booking.ticketQr = await generateTicketQr(booking);
+
   // MongoDB save
   await booking.save();
 
   // Redis locks hata do
-  for (const seat of booking.seats) {
-    await unlockSeat(booking.show.toString(), seat);
-  }
+for (const seat of booking.seats) {
+  await unlockSeat(booking.show._id.toString(), seat);
+}
 
   const io = getIO();
 
-  io.to(booking.show.toString()).emit("seat-booked", {
-    showId: booking.show,
-    seats: booking.seats,
-  });
+  io.to(booking.show._id.toString()).emit("seat-booked", {
+  showId: booking.show._id,
+  seats: booking.seats,
+});
 
   return booking;
 };
