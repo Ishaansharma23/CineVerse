@@ -1,6 +1,5 @@
 const nodemailer = require("nodemailer");
 
-
 // * createTransport - > Ye SMTP server ki configuration + transporter object banata hai.
 
 // Mail bhejne ke liye transporter banate hain.
@@ -10,34 +9,25 @@ const nodemailer = require("nodemailer");
 // waise hi transporter SMTP server ke through
 // email send karta hai.
 const transporter = nodemailer.createTransport({
-
   // Gmail SMTP use karenge
   service: "gmail",
 
   // Gmail account jis se mail jayegi, Ye SMTP connection ke liye login credentials hain.
-  // Google App Password ka passsword 
+  // Google App Password ka passsword
   auth: {
-
     // Sender email
     user: process.env.EMAIL_USER,
 
     // Google App Password
     // (Normal Gmail password nahi hota)
     pass: process.env.EMAIL_PASS,
-
   },
-
 });
 
 // Ticket email send karega
-const sendTicketEmail = async (
-  userEmail,
-  booking
-) => {
-
+const sendTicketEmail = async (userEmail, booking, pdfPath) => {
   // Mail send karo
   await transporter.sendMail({
-
     // Kis email se jayegi
     from: process.env.EMAIL_USER,
 
@@ -46,6 +36,14 @@ const sendTicketEmail = async (
 
     // Subject line
     subject: "🎟 CineVerse Ticket",
+
+    attachments: [
+      {
+        filename: `${booking.bookingId}.pdf`,
+        path: pdfPath,
+        contentType: "application/pdf",
+      },
+    ],
 
     // HTML Mail
     html: `
@@ -77,9 +75,7 @@ const sendTicketEmail = async (
       </p>
 
     `,
-
   });
-
 };
 
 module.exports = {
