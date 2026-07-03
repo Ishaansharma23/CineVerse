@@ -1,6 +1,6 @@
-const PDFDocument = require("pdfkit");
-const fs = require("fs");
-const path = require("path");
+const PDFDocument = require("pdfkit"); // Ye library hai jo PDF banati hai.
+const fs = require("fs"); // file system hai create read update delete
+const path = require("path"); // path banata h
 
 // Ticket PDF generate karega
 const generateTicketPdf = async (booking) => {
@@ -15,7 +15,7 @@ const generateTicketPdf = async (booking) => {
   const doc = new PDFDocument();
 
   // PDF ko file me likho
-  doc.pipe(fs.createWriteStream(filePath));
+  doc.pipe(fs.createWriteStream(filePath)); // Jo PDF banegi usko is file me save kar dena."
 
   // Heading
   doc
