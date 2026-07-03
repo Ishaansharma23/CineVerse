@@ -45,6 +45,31 @@ const bookingSchema = new mongoose.Schema(
       default: null,
     },
 
+    // Razorpay refund id
+    refundId: {
+      type: String,
+      default: null,
+    },
+
+    // User ko kitna refund mila
+    refundAmount: {
+      type: Number,
+      default: 0,
+    },
+
+    // Refund status
+    refundStatus: {
+      type: String,
+      enum: ["pending", "processed", "failed"],
+      default: null,
+    },
+
+    // Booking kab cancel hui
+    cancelledAt: {
+      type: Date,
+      default: null,
+    },
+
     // Har booking ka unique booking id
     bookingId: {
       type: String,
@@ -62,7 +87,7 @@ const bookingSchema = new mongoose.Schema(
     // Booking ka status
     bookingStatus: {
       type: String,
-      enum: ["pending", "booked", "cancelled", "expired"],
+      enum: ["pending", "booked", "cancelled", "expired", "failed"],
       default: "pending",
     },
 

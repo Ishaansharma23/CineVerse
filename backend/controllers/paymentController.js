@@ -2,6 +2,8 @@ const Booking = require("../models/bookings");
 const razorpay = require("../config/razorpay");
 const crypto = require("crypto");
 const { completeBookingPayment } = require("../services/paymentService");
+const { unlockSeat } = require("../services/seatLockService");
+const { getIO } = require("../config/socket");
 
 
 // Sirf existing booking ke liye payment start karta hai. Booking exist karti? YES Pending hai? YES Razorpay Order Create
@@ -152,12 +154,12 @@ const razorpayWebhook = async (req, res) => {
     // Razorpay request bhejta hai. Wo signature HTTP Header me bhejta hai
     // Header → Signature
     // Body → Event + Payment Data
+
     // Razorpay ki webhook signature
     const webhookSignature = req.headers["x-razorpay-signature"];
 
-
     // Raw request body, Ye normal JSON nahi hai. actually Buffer type ka hota
-    const body = req.body;// Body me actual payment data hota hai.
+    const body = req.body; // Body me actual payment data hota hai.
 
     // Backend apni webhook signature generate karega
     const generatedSignature = crypto
@@ -173,54 +175,123 @@ const razorpayWebhook = async (req, res) => {
       });
     }
 
+    // ** Buffer = Raw binary data (bytes) jo network se aata hai.
+    // Hum webhook me Buffer isliye use karte hain kyunki signature original bytes par hi generate hoti hai.
+    // Agar pehle JSON bana diya jaye, to original data change ho sakta hai aur signature verify nahi hogi.
 
-    // ** Buffer = Raw binary data (bytes) jo network se aata hai. Hum webhook me Buffer isliye
-    //  use karte hain kyunki signature original bytes par hi generate hoti hai.
-    //  Agar pehle JSON bana diya jaye, to original data change ho sakta hai aur signature verify nahi hogi.
-    // Buffer ko JSON object me convert karo, body buffer thi
+    // Buffer ko JSON object me convert karo
+    const event = JSON.parse(body.toString());
 
-const event = JSON.parse(body.toString());
+    // PAYMENT SUCCESS
 
-// Sirf payment.captured event process karenge, webhook bht events bhejta jaise payment.failed, refund.created
-if (event.event !== "payment.captured") { //Payment successfully complete. Captured = Paise successfully merchant (tumhare account) ke liye collect ho gaye.
-  return res.status(200).json({
-    success: true,
-    message: "Event ignored",
-  });
-}
+    // Sirf payment.captured event process karenge, webhook bht events bhejta jaise payment.failed, refund.created
+    if (event.event === "payment.captured") { //Payment successfully complete. Captured = Paise successfully merchant (tumhare account) ke liye collect ho gaye.
 
-// Payment details nikalo , (Razorpay kis event ki notification bhej raha hai?) - event
-const payment = event.payload.payment.entity; // Ye actual payment object hai. entity, Ye payment wali information hai. - payment
+      // Payment details nikalo
+      const payment = event.payload.payment.entity; //Ye actual payment object hai. entity, Ye payment wali information hai. - payment
 
+      // Booking find karo
+      const booking = await Booking.findOne({
+        orderId: payment.order_id,
+      });
 
-const booking = await Booking.findOne({
-  orderId: payment.order_id,
-});
+      if (!booking) {
+        return res.status(404).json({
+          success: false,
+          message: "Booking not found",
+        });
+      }
 
-if (!booking) {
-  return res.status(404).json({
-    success: false,
-    message: "Booking not found",
-  });
-}
+     // Fir duplicate webhook handle karo: Razorpay kabhi-kabhi same webhook dobara bhej sakta hai.
+      if (booking.paymentStatus === "paid") {
+        return res.status(200).json({
+          success: true,
+          message: "Payment already processed",
+        });
+      }
 
-// Fir duplicate webhook handle karo: Razorpay kabhi-kabhi same webhook dobara bhej sakta hai.
-if (booking.paymentStatus === "paid") {
-  return res.status(200).json({
-    success: true,
-    message: "Payment already processed",
-  });
-}
-await completeBookingPayment(
-  booking,
-  payment.id,
-  webhookSignature
-);
+      // Common payment complete service call
+      await completeBookingPayment(
+        booking,
+        payment.id,
+        webhookSignature
+      );
 
-return res.status(200).json({
-  success: true,
-  message: "Webhook processed successfully",
-});
+      return res.status(200).json({
+        success: true,
+        message: "Webhook processed successfully",
+      });
+    }
+
+    // PAYMENT FAILED
+
+    if (event.event === "payment.failed") { // Konsa webhook aaya? -> event batata(payment.captured , failed)
+      // payload = actual data or uske andr payment object , uske andr entiti yani -> Original payment ki details. 
+
+      // Payment details nikalo
+      const payment = event.payload.payment.entity; // | upr dekh likha h iske 2 line upr 
+
+      // Booking find karo
+      const booking = await Booking.findOne({
+        orderId: payment.order_id,
+      });
+
+      if (!booking) {
+        return res.status(404).json({
+          success: false,
+          message: "Booking not found",
+        });
+      }
+
+      // Agar payment pehle hi successful ho gayi thi to ignore
+      if (booking.paymentStatus === "paid") {
+        return res.status(200).json({
+          success: true,
+          message: "Payment already completed",
+        });
+      }
+
+      // Booking failed mark karo
+      booking.paymentStatus = "failed";
+      booking.bookingStatus = "failed";
+
+      // MongoDB save
+      await booking.save();
+
+      // Redis locks hatao
+      for (const seat of booking.seats) {
+        await unlockSeat(
+          booking.show.toString(),
+          seat
+        );
+      }
+
+      // Frontend ko realtime update bhejo
+      const io = getIO();
+
+      io.to(booking.show.toString()).emit(
+        "seat-unlocked",
+        {
+          showId: booking.show,
+          seats: booking.seats,
+        }
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: "Payment failed handled",
+      });
+    }
+
+    // ==========================================================
+    // Baaki saare webhook events ignore
+    // ==========================================================
+
+    return res.status(200).json({
+      success: true,
+      message: "Event ignored",
+    });
+
   } catch (error) {
     console.log("Webhook Error:", error);
 

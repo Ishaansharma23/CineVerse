@@ -219,6 +219,9 @@ const cancelBooking = async (req, res) => {
       });
     }
 
+    // Yaad rakh lo ki booking pehle pending thi ya nahi
+    const wasPending = booking.paymentStatus === "pending";
+
     // Check karo logged-in user isi booking ka owner hai ya nahi
     if (booking.user.toString() !== req.user._id.toString()) {
       return res.status(403).json({
@@ -240,12 +243,28 @@ const cancelBooking = async (req, res) => {
 
     // Booking cancel karo
     booking.bookingStatus = "cancelled";
+    booking.paymentStatus = "cancelled";
 
     // Agar payment ho chuki thi to future me refund process hoga
     // booking.paymentStatus = "refunded";
 
     // Updated booking save karo
     await booking.save();
+
+    if (wasPending) {
+      // Redis unlock
+      for (const seat of booking.seats) {
+        await unlockSeat(booking.show.toString(), seat);
+      }
+
+      // Socket
+      const io = getIO();
+
+      io.to(booking.show.toString()).emit("seat-unlocked", {
+        showId: booking.show,
+        seats: booking.seats,
+      });
+    }
 
     res.status(200).json({
       success: true,
