@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ShieldCheck, Calendar, MapPin, Printer, ArrowRight, CircleAlert, Sparkles, User, Mail, CreditCard, ChevronRight } from 'lucide-react';
-import { events } from '../utils/Constants';
 import gsap from 'gsap';
 
 const playsList = [
@@ -36,17 +35,13 @@ const EventBooking = () => {
   useEffect(() => {
     let details = null;
     if (id.startsWith('event-')) {
-      const idx = parseInt(id.replace('event-', ''), 10);
-      const matched = events[idx];
-      if (matched) {
-        details = {
-          title: matched.title,
-          category: matched.subtitle || 'Live Event',
-          venue: 'Cineverse Premiere Arena, Kolkata',
-          date: 'Saturday, 11 Jul at 07:00 PM',
-          price: 499,
-        };
-      }
+      details = {
+        title: 'Cineverse Special Live Event',
+        category: 'Live Event',
+        venue: 'Cineverse Premiere Arena, Kolkata',
+        date: 'Saturday, 11 Jul at 07:00 PM',
+        price: 499,
+      };
     } else if (id.startsWith('play-')) {
       const playId = parseInt(id.replace('play-', ''), 10);
       const matched = playsList.find(p => p.id === playId);
