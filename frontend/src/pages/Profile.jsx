@@ -128,9 +128,13 @@ const Profile = () => {
               : item
           )
         );
+
+        toast.success('Booking cancelled successfully!');
+        toast.success('Refund processed successfully!');
       }
     } catch (err) {
       setErrorMsg(err.message || 'Ticket cancellation failed.');
+      toast.error(err.message || 'Ticket cancellation failed.');
     } finally {
       setCancellingId(null);
     }

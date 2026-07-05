@@ -118,10 +118,24 @@ const MovieDetails = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-rose-600 border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-neutral-400 text-sm font-medium tracking-wide">Loading movie experience...</span>
+      <div className="min-h-screen bg-[#0A0A0A] text-white animate-pulse">
+        {/* Large Backdrop Banner Skeleton */}
+        <div className="w-full h-[55vh] bg-neutral-900/60 relative" />
+        
+        {/* Content Wrapper */}
+        <div className="max-w-7xl mx-auto px-4 md:px-8 -mt-28 relative z-30 pb-20">
+          <div className="flex flex-col md:flex-row gap-8 items-start">
+            {/* Poster Skeleton */}
+            <div className="w-56 aspect-[2/3] bg-neutral-900 rounded-2xl flex-shrink-0" />
+            
+            {/* Info Skeleton */}
+            <div className="flex-1 space-y-4 pt-32 md:pt-0">
+              <div className="h-8 bg-neutral-900 rounded-md w-3/4" />
+              <div className="h-4 bg-neutral-900 rounded-md w-1/4" />
+              <div className="h-4 bg-neutral-900 rounded-md w-1/2" />
+              <div className="h-10 bg-neutral-900 rounded-xl w-32 mt-6" />
+            </div>
+          </div>
         </div>
       </div>
     );

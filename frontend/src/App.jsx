@@ -13,6 +13,7 @@ import MovieDetails from './pages/MovieDetails';
 import SeatSelection from './pages/SeatSelection';
 import Checkout from './pages/Checkout';
 import PaymentSuccess from './pages/PaymentSuccess';
+import PaymentFailed from './pages/PaymentFailed';
 import Ticket from './pages/Ticket';
 import Profile from './pages/Profile';
 import Dashboard from './pages/Dashboard';
@@ -53,7 +54,7 @@ function App() {
   }
 
   const location = useLocation();
-  const hideHeaderFooter = location.pathname.includes('/seats') || location.pathname.includes('/checkout') || location.pathname.includes('/payment-success');
+  const hideHeaderFooter = location.pathname.includes('/seats') || location.pathname.includes('/checkout') || location.pathname.includes('/payment-success') || location.pathname.includes('/payment-failed');
 
   return (
     <TrailerProvider>
@@ -103,6 +104,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <PaymentSuccess />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/payment-failed"
+              element={
+                <ProtectedRoute>
+                  <PaymentFailed />
                 </ProtectedRoute>
               }
             />

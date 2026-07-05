@@ -182,10 +182,35 @@ const SeatSelection = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-rose-600 border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-neutral-400 text-sm font-medium tracking-wide">Syncing seat layout...</span>
+      <div className="min-h-screen bg-[#0A0A0A] text-white py-16 px-4 md:px-8 flex flex-col items-center justify-center animate-pulse">
+        {/* Screen arch mockup */}
+        <div className="w-full max-w-2xl h-2 bg-neutral-900 rounded-full mb-20 shadow-md relative">
+          <div className="absolute top-4 inset-x-0 text-center text-[10px] text-neutral-600 font-extrabold tracking-widest uppercase">
+            SCREEN THIS WAY
+          </div>
+        </div>
+
+        {/* Rows of seat dots */}
+        <div className="space-y-4 mb-16">
+          {Array.from({ length: 8 }).map((_, rIdx) => (
+            <div key={rIdx} className="flex gap-3 justify-center">
+              {Array.from({ length: 14 }).map((_, sIdx) => (
+                <div 
+                  key={sIdx} 
+                  className={`w-6 h-6 rounded-md bg-neutral-900/80 ${sIdx === 3 || sIdx === 10 ? 'mr-8' : ''}`}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+
+        {/* Bottom bar skeleton */}
+        <div className="w-full max-w-4xl bg-[#121212]/40 border border-neutral-900/60 p-6 rounded-2xl flex justify-between items-center">
+          <div className="space-y-2">
+            <div className="h-4 bg-neutral-900 rounded-md w-24" />
+            <div className="h-6 bg-neutral-900 rounded-md w-36" />
+          </div>
+          <div className="h-12 bg-neutral-900 rounded-xl w-48" />
         </div>
       </div>
     );

@@ -853,7 +853,34 @@ const Dashboard = () => {
         </div>
 
         {/* Tab Contents */}
-        <div ref={containerRef}>
+        {errorMsg ? (
+          <div className="py-20 text-center border border-dashed border-rose-900/40 rounded-3xl bg-rose-950/5 max-w-xl mx-auto px-6 select-none">
+            <AlertTriangle className="w-12 h-12 text-rose-500 mx-auto mb-4 animate-bounce" />
+            <h3 className="text-base font-bold text-rose-400 uppercase tracking-wide">Sync Failure</h3>
+            <p className="text-neutral-500 text-xs mt-2 leading-relaxed font-semibold">
+              {errorMsg}
+            </p>
+            <button
+              onClick={() => isAdmin ? loadAdminData() : loadOwnerData()}
+              className="mt-6 px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold tracking-wider uppercase transition-all cursor-pointer"
+            >
+              Retry Connection
+            </button>
+          </div>
+        ) : loading ? (
+          <div className="space-y-6 animate-pulse select-none">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+              {Array.from({ length: 8 }).map((_, idx) => (
+                <div key={idx} className="h-20 bg-neutral-900/60 rounded-xl" />
+              ))}
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              <div className="lg:col-span-8 h-[380px] bg-neutral-900/60 rounded-2xl" />
+              <div className="lg:col-span-4 h-[380px] bg-neutral-900/60 rounded-2xl" />
+            </div>
+          </div>
+        ) : (
+          <div ref={containerRef}>
           
           {/* OWNER: Theatres Tab */}
           {activeTab === 'theatres' && isOwner && (
@@ -1537,7 +1564,7 @@ const Dashboard = () => {
           )}
 
         </div>
-
+      )}
       </div>
 
       {/* MODALS */}

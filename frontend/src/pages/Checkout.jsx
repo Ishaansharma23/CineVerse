@@ -5,6 +5,7 @@ import { clearBooking } from '../redux/slices/bookingSlice';
 import request from '../services/api';
 import { ShieldCheck, CreditCard, Sparkles, AlertCircle, ArrowLeft, Calendar, Clock, Monitor, Lock, Ticket } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -116,11 +117,34 @@ const Checkout = () => {
           .then(() => {
             dispatch(clearBooking());
             localStorage.removeItem('cv_active_booking_id');
+            toast.success('Selected seats released successfully.');
           })
           .catch((err) => console.error('Error auto-cancelling booking:', err));
       }
     };
   }, [dispatch]);
+
+  // 3.5. Tab exit / browser close / reload keepalive seat release
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const idToCancel = activeBookingIdRef.current;
+      if (idToCancel && !paymentCompletedRef.current) {
+        const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+        fetch(`${apiUrl}/bookings/cancel/${idToCancel}`, {
+          method: 'PUT',
+          keepalive: true,
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
 
   const handleBack = async () => {
     if (activeBookingId) {
@@ -128,6 +152,7 @@ const Checkout = () => {
         await request(`/bookings/cancel/${activeBookingId}`, { method: 'PUT' });
         dispatch(clearBooking());
         localStorage.removeItem('cv_active_booking_id');
+        toast.success('Selected seats released successfully.');
       } catch (err) {
         console.error('Error cancelling booking on back action:', err);
       }
@@ -189,6 +214,7 @@ const Checkout = () => {
               paymentCompletedRef.current = true;
               localStorage.removeItem('cv_active_booking_id');
               dispatch(clearBooking());
+              toast.success('Tickets booked successfully!');
               // Navigate to payment success screen passing details
               navigate('/payment-success', {
                 state: {
@@ -196,11 +222,13 @@ const Checkout = () => {
                 },
               });
             } else {
-              setErrorMsg('Payment verification failed. Please contact support.');
+              toast.error('Payment verification failed.');
+              navigate('/payment-failed');
             }
           } catch (verifyErr) {
             console.error('Payment verification failed:', verifyErr);
-            setErrorMsg(verifyErr.message || 'Signature verification failed.');
+            toast.error(verifyErr.message || 'Signature verification failed.');
+            navigate('/payment-failed');
           } finally {
             setPaying(false);
           }
@@ -224,7 +252,8 @@ const Checkout = () => {
       razorpayInstance.open();
     } catch (err) {
       console.error('Payment init failed:', err);
-      setErrorMsg(err.message || 'Payment gateway initialization failed.');
+      toast.error(err.message || 'Payment gateway initialization failed.');
+      navigate('/payment-failed');
       setPaying(false);
     }
   };
@@ -237,9 +266,48 @@ const Checkout = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex flex-col items-center justify-center space-y-4">
-        <div className="w-10 h-10 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-xs uppercase tracking-widest text-neutral-500 font-bold">Synchronizing Booking Details...</p>
+      <div className="min-h-screen bg-[#0A0A0A] text-white py-16 px-4 md:px-8 flex items-center justify-center">
+        <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-8 animate-pulse">
+          {/* Left Panel Skeleton */}
+          <div className="lg:col-span-8 bg-[#121212]/40 border border-neutral-900/60 p-8 rounded-3xl space-y-6">
+            <div className="h-6 bg-neutral-900 rounded-md w-1/4 mb-4" />
+            <div className="flex gap-6">
+              <div className="w-24 aspect-[2/3] bg-neutral-900 rounded-xl" />
+              <div className="flex-1 space-y-4">
+                <div className="h-8 bg-neutral-900 rounded-md w-3/4" />
+                <div className="h-4 bg-neutral-900 rounded-md w-1/2" />
+                <div className="h-4 bg-neutral-900 rounded-md w-1/3" />
+              </div>
+            </div>
+            <div className="border-t border-neutral-900/60 pt-6 space-y-4">
+              <div className="h-5 bg-neutral-900 rounded-md w-1/3" />
+              <div className="grid grid-cols-3 gap-3">
+                <div className="h-10 bg-neutral-900 rounded-xl" />
+                <div className="h-10 bg-neutral-900 rounded-xl" />
+                <div className="h-10 bg-neutral-900 rounded-xl" />
+              </div>
+            </div>
+          </div>
+          {/* Right Panel Skeleton */}
+          <div className="lg:col-span-4 bg-[#121212]/40 border border-neutral-900/60 p-6 rounded-3xl space-y-6">
+            <div className="h-5 bg-neutral-900 rounded-md w-1/2" />
+            <div className="space-y-4">
+              <div className="flex justify-between">
+                <div className="h-4 bg-neutral-900 rounded-md w-1/3" />
+                <div className="h-4 bg-neutral-900 rounded-md w-1/4" />
+              </div>
+              <div className="flex justify-between">
+                <div className="h-4 bg-neutral-900 rounded-md w-1/4" />
+                <div className="h-4 bg-neutral-900 rounded-md w-1/5" />
+              </div>
+              <div className="border-t border-neutral-900/60 pt-4 flex justify-between">
+                <div className="h-6 bg-neutral-900 rounded-md w-1/3" />
+                <div className="h-6 bg-neutral-900 rounded-md w-1/4" />
+              </div>
+            </div>
+            <div className="h-12 bg-neutral-900 rounded-xl w-full" />
+          </div>
+        </div>
       </div>
     );
   }
