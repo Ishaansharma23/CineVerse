@@ -1,10 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
-import { ShieldCheck, Plus, Sparkles, Building, ArrowRight } from 'lucide-react';
+import { ShieldCheck, Plus, Sparkles, Building, ArrowRight, AlertTriangle } from 'lucide-react';
 import gsap from 'gsap';
+import request from '../services/api';
 
 const ListYourShow = () => {
   const [formData, setFormData] = useState({ name: '', email: '', showName: '', category: 'Comedy', city: 'Kolkata', expectedPrice: 200, message: '' });
   const [success, setSuccess] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
   const containerRef = useRef(null);
 
   useEffect(() => {
@@ -17,9 +20,25 @@ const ListYourShow = () => {
     }
   }, []);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setSuccess(true);
+    setSubmitting(true);
+    setError('');
+    try {
+      const response = await request('/proposals', {
+        method: 'POST',
+        body: JSON.stringify(formData),
+      });
+      if (response.success) {
+        setSuccess(true);
+      } else {
+        setError(response.message || 'Failed to submit proposal.');
+      }
+    } catch (err) {
+      setError(err.message || 'Connection error. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -87,6 +106,13 @@ const ListYourShow = () => {
               <h2 className="text-lg font-bold text-neutral-200 border-b border-neutral-900 pb-3 uppercase tracking-wider">
                 Show Proposal Details
               </h2>
+              
+              {error && (
+                <div className="p-4 bg-rose-950/10 border border-rose-900/30 text-rose-500 rounded-xl flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" />
+                  <span>{error}</span>
+                </div>
+              )}
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
@@ -174,10 +200,11 @@ const ListYourShow = () => {
 
               <button
                 type="submit"
-                className="w-full py-3.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-1.5 active:scale-98"
+                disabled={submitting}
+                className="w-full py-3.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-1.5 active:scale-98"
               >
-                Submit Proposal
-                <ArrowRight className="w-4 h-4" />
+                {submitting ? 'Submitting Proposal...' : 'Submit Proposal'}
+                {!submitting && <ArrowRight className="w-4 h-4" />}
               </button>
             </form>
           )}

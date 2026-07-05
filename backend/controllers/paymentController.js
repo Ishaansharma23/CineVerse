@@ -51,10 +51,27 @@ const createOrder = async (req, res) => {
       });
     }
 
+    let finalAmount = booking.totalAmount;
+    if (req.body.promoCode) {
+      const Offer = require("../models/Offer");
+      const offer = await Offer.findOne({ code: req.body.promoCode.toUpperCase(), isActive: true });
+      if (offer && finalAmount >= offer.minPurchase) {
+        let discount = 0;
+        if (offer.discountType === "flat") {
+          discount = offer.discountValue;
+        } else if (offer.discountType === "percentage") {
+          discount = Math.round((finalAmount * offer.discountValue) / 100);
+        }
+        const finalDiscount = Math.min(discount, finalAmount);
+        finalAmount = finalAmount - finalDiscount;
+        booking.totalAmount = finalAmount;
+      }
+    }
+
     // Razorpay order create karo, orders-> generate krta random order id by razorpay itself ( as a string )
     const order = await razorpay.orders.create({
       // Razorpay amount paisa me leta hai
-      amount: booking.totalAmount * 100,
+      amount: finalAmount * 100,
 
       currency: "INR",
 

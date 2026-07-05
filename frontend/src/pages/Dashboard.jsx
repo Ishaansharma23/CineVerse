@@ -6,7 +6,7 @@ import request from '../services/api';
 import { 
   Film, Plus, ShieldCheck, MapPin, Tv, Calendar, Eye, Trash2, ArrowRight, 
   User, TrendingUp, DollarSign, Ticket, RefreshCw, BarChart2, PlusCircle, 
-  Check, X, ShieldAlert, Users, Award 
+  Check, X, ShieldAlert, Users, Award, Gift, FileText
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import gsap from 'gsap';
@@ -33,6 +33,12 @@ const Dashboard = () => {
   const [bookingsList, setBookingsList] = useState([]);
   const [adminStats, setAdminStats] = useState(null);
   const [ownerBookings, setOwnerBookings] = useState([]);
+
+  // Proposals & Offers
+  const [proposals, setProposals] = useState([]);
+  const [promos, setPromos] = useState([]);
+  const [showPromoModal, setShowPromoModal] = useState(false);
+  const [promoForm, setPromoForm] = useState({ title: '', code: '', description: '', discountType: 'flat', discountValue: 0, minPurchase: 0 });
 
   // Search & Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -97,7 +103,7 @@ const Dashboard = () => {
     }
   }, [user, isAuthenticated, isOwner, isAdmin]);
 
-  // Entrance tab animations
+  // Entrance tab animations and lazy loading dynamic lists
   useEffect(() => {
     if (containerRef.current) {
       gsap.fromTo(
@@ -106,7 +112,75 @@ const Dashboard = () => {
         { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }
       );
     }
-  }, [activeTab]);
+
+    if (activeTab === 'proposals' && (isOwner || isAdmin)) {
+      request('/proposals')
+        .then(res => {
+          if (res.success) setProposals(res.proposals || []);
+        })
+        .catch(err => console.error(err));
+    } else if (activeTab === 'promos' && isAdmin) {
+      request('/offers')
+        .then(res => {
+          if (res.success) setPromos(res.offers || []);
+        })
+        .catch(err => console.error(err));
+    }
+  }, [activeTab, isOwner, isAdmin]);
+
+  const handleUpdateProposalStatus = async (proposalId, status) => {
+    try {
+      const res = await request(`/proposals/${proposalId}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status })
+      });
+      if (res.success) {
+        toast.success(`Proposal ${status} successfully!`);
+        setProposals(prev => prev.map(p => p._id === proposalId ? { ...p, status } : p));
+      } else {
+        toast.error(res.message || 'Failed to update proposal status.');
+      }
+    } catch (err) {
+      toast.error(err.message || 'Error updating proposal status.');
+    }
+  };
+
+  const handleCreatePromo = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await request('/offers', {
+        method: 'POST',
+        body: JSON.stringify(promoForm)
+      });
+      if (res.success) {
+        toast.success('Promo code created successfully!');
+        setPromos(prev => [res.offer, ...prev]);
+        setShowPromoModal(false);
+        setPromoForm({ title: '', code: '', description: '', discountType: 'flat', discountValue: 0, minPurchase: 0 });
+      } else {
+        toast.error(res.message || 'Failed to create promo code.');
+      }
+    } catch (err) {
+      toast.error(err.message || 'Error creating promo code.');
+    }
+  };
+
+  const handleDeletePromo = async (promoId) => {
+    if (!window.confirm('Are you sure you want to delete this promo code?')) return;
+    try {
+      const res = await request(`/offers/${promoId}`, {
+        method: 'DELETE'
+      });
+      if (res.success) {
+        toast.success('Promo code deleted successfully!');
+        setPromos(prev => prev.filter(p => p._id !== promoId));
+      } else {
+        toast.error(res.message || 'Failed to delete promo code.');
+      }
+    } catch (err) {
+      toast.error(err.message || 'Error deleting promo code.');
+    }
+  };
 
   // Load Owner Data
   const loadOwnerData = async () => {
@@ -811,6 +885,14 @@ const Dashboard = () => {
                 >
                   Analytics
                 </button>
+                <button
+                  onClick={() => setActiveTab('proposals')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                    activeTab === 'proposals' ? 'bg-white text-black' : 'bg-neutral-900 text-neutral-450 hover:text-white'
+                  }`}
+                >
+                  Show Proposals
+                </button>
               </>
             )}
             {isAdmin && (
@@ -846,6 +928,22 @@ const Dashboard = () => {
                   }`}
                 >
                   Bookings Monitor
+                </button>
+                <button
+                  onClick={() => setActiveTab('promos')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                    activeTab === 'promos' ? 'bg-white text-black' : 'bg-neutral-900 text-neutral-450 hover:text-white'
+                  }`}
+                >
+                  Offers & Promos
+                </button>
+                <button
+                  onClick={() => setActiveTab('proposals')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                    activeTab === 'proposals' ? 'bg-white text-black' : 'bg-neutral-900 text-neutral-450 hover:text-white'
+                  }`}
+                >
+                  Show Proposals
                 </button>
               </>
             )}
@@ -1563,6 +1661,142 @@ const Dashboard = () => {
             </div>
           )}
 
+          {/* ADMIN: Offers & Promos Tab */}
+          {activeTab === 'promos' && isAdmin && (
+            <div className="space-y-6 animate-fadeIn">
+              <div className="flex justify-between items-center">
+                <h2 className="text-lg font-bold text-neutral-200 uppercase tracking-wider">Offers & Promo Codes</h2>
+                <button
+                  onClick={() => setShowPromoModal(true)}
+                  className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 px-4 py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-colors cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" /> Create Promo
+                </button>
+              </div>
+
+              {promos.length === 0 ? (
+                <div className="py-16 text-center border border-dashed border-neutral-900 rounded-3xl bg-neutral-950/20">
+                  <Gift className="w-12 h-12 text-neutral-700 mx-auto mb-4" />
+                  <p className="text-neutral-400 text-sm">No promo codes configured yet. Click "Create Promo" to add one!</p>
+                </div>
+              ) : (
+                <div className="bg-[#121212] border border-neutral-850 rounded-2xl overflow-hidden shadow-xl">
+                  <table className="w-full text-left text-xs font-semibold text-neutral-400">
+                    <thead className="bg-neutral-900/70 border-b border-neutral-855 text-neutral-500 uppercase tracking-wider">
+                      <tr>
+                        <th className="p-4">Title</th>
+                        <th className="p-4">Promo Code</th>
+                        <th className="p-4">Type</th>
+                        <th className="p-4">Value</th>
+                        <th className="p-4">Min Spend</th>
+                        <th className="p-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-900">
+                      {promos.map((promo) => (
+                        <tr key={promo._id} className="hover:bg-neutral-900/30 transition-colors">
+                          <td className="p-4 font-bold text-neutral-200">{promo.title}</td>
+                          <td className="p-4 font-mono font-black text-rose-500">{promo.code}</td>
+                          <td className="p-4 uppercase">{promo.discountType}</td>
+                          <td className="p-4 text-neutral-300">
+                            {promo.discountType === 'flat' ? `₹${promo.discountValue}` : `${promo.discountValue}%`}
+                          </td>
+                          <td className="p-4 text-neutral-300">₹{promo.minPurchase}</td>
+                          <td className="p-4 text-right">
+                            <button
+                              onClick={() => handleDeletePromo(promo._id)}
+                              className="p-2 bg-neutral-950 hover:bg-neutral-900 border border-neutral-850 hover:border-neutral-700 text-neutral-500 hover:text-rose-500 rounded-lg transition-colors cursor-pointer"
+                              title="Delete Promo Code"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ADMIN & OWNER: Show Proposals Tab */}
+          {activeTab === 'proposals' && (isOwner || isAdmin) && (
+            <div className="space-y-6 animate-fadeIn">
+              <h2 className="text-lg font-bold text-neutral-200 uppercase tracking-wider">Show Proposals Review</h2>
+
+              {proposals.length === 0 ? (
+                <div className="py-16 text-center border border-dashed border-neutral-900 rounded-3xl bg-neutral-950/20">
+                  <FileText className="w-12 h-12 text-neutral-700 mx-auto mb-4" />
+                  <p className="text-neutral-400 text-sm">No show proposals have been submitted yet.</p>
+                </div>
+              ) : (
+                <div className="bg-[#121212] border border-neutral-850 rounded-2xl overflow-hidden shadow-xl">
+                  <table className="w-full text-left text-xs font-semibold text-neutral-400">
+                    <thead className="bg-neutral-900/70 border-b border-neutral-855 text-neutral-500 uppercase tracking-wider">
+                      <tr>
+                        <th className="p-4">Presenter</th>
+                        <th className="p-4">Show Details</th>
+                        <th className="p-4">City</th>
+                        <th className="p-4">Expected Price</th>
+                        <th className="p-4">Status</th>
+                        <th className="p-4 text-right">Review Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-900">
+                      {proposals.map((prop) => (
+                        <tr key={prop._id} className="hover:bg-neutral-900/30 transition-colors">
+                          <td className="p-4">
+                            <p className="font-bold text-neutral-200">{prop.name}</p>
+                            <p className="text-[10px] text-neutral-500 font-mono mt-0.5">{prop.email}</p>
+                          </td>
+                          <td className="p-4">
+                            <p className="font-bold text-neutral-300">{prop.showName}</p>
+                            <p className="text-[10px] text-neutral-500 mt-0.5 uppercase tracking-wider">{prop.category}</p>
+                            {prop.message && (
+                              <p className="text-[10px] text-neutral-400 mt-1 italic">"{prop.message}"</p>
+                            )}
+                          </td>
+                          <td className="p-4 text-neutral-300 font-bold">{prop.city}</td>
+                          <td className="p-4 text-neutral-300 font-bold">₹{prop.expectedPrice}</td>
+                          <td className="p-4">
+                            <span className={`px-2 py-0.5 rounded border text-[9px] uppercase font-extrabold ${
+                              prop.status === 'approved'
+                                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'
+                                : prop.status === 'rejected'
+                                ? 'bg-rose-500/10 border-rose-500/20 text-rose-500'
+                                : 'bg-yellow-500/10 border border-yellow-500/20 text-yellow-500'
+                            }`}>
+                              {prop.status}
+                            </span>
+                          </td>
+                          <td className="p-4 text-right space-x-2">
+                            {prop.status === 'pending' && (
+                              <div className="flex gap-2 justify-end">
+                                <button
+                                  onClick={() => handleUpdateProposalStatus(prop._id, 'approved')}
+                                  className="px-2.5 py-1.5 bg-emerald-600/10 border border-emerald-500/20 hover:border-emerald-500 text-emerald-500 text-[10px] font-bold rounded-lg uppercase transition-all cursor-pointer flex-shrink-0"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={() => handleUpdateProposalStatus(prop._id, 'rejected')}
+                                  className="px-2.5 py-1.5 bg-rose-600/10 border border-rose-500/20 hover:border-rose-500 text-rose-500 text-[10px] font-bold rounded-lg uppercase transition-all cursor-pointer flex-shrink-0"
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
       )}
       </div>
@@ -1792,6 +2026,88 @@ const Dashboard = () => {
 
               <button type="submit" className="w-full py-3.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold uppercase tracking-wider transition-colors cursor-pointer">
                 Confirm Schedule Slot
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 4. Modal: Create Promo Code */}
+      {showPromoModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#121212] border border-neutral-850 rounded-3xl w-full max-w-lg p-8 relative space-y-6">
+            <button onClick={() => setShowPromoModal(false)} className="absolute top-4 right-4 text-neutral-500 hover:text-white transition-colors cursor-pointer">
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="text-base font-bold uppercase tracking-wider text-neutral-250 border-b border-neutral-900 pb-3">Create Promo Offer</h3>
+            
+            <form onSubmit={handleCreatePromo} className="space-y-4 text-xs font-semibold text-neutral-450">
+              <div className="space-y-1">
+                <label className="uppercase tracking-wider">Offer Title</label>
+                <input
+                  type="text" required placeholder="e.g. ICICI Card Discount"
+                  value={promoForm.title}
+                  onChange={(e) => setPromoForm({ ...promoForm, title: e.target.value })}
+                  className="w-full bg-[#1A1A1A] border border-neutral-800 focus:border-rose-600 rounded-xl p-3 text-neutral-200 outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="uppercase tracking-wider">Promo Code (Uppercase)</label>
+                  <input
+                    type="text" required placeholder="e.g. ICICIBOGO"
+                    value={promoForm.code}
+                    onChange={(e) => setPromoForm({ ...promoForm, code: e.target.value.toUpperCase() })}
+                    className="w-full bg-[#1A1A1A] border border-neutral-800 focus:border-rose-600 rounded-xl p-3 text-neutral-200 outline-none uppercase font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="uppercase tracking-wider">Discount Type</label>
+                  <select
+                    value={promoForm.discountType}
+                    onChange={(e) => setPromoForm({ ...promoForm, discountType: e.target.value })}
+                    className="w-full bg-[#1A1A1A] border border-neutral-800 focus:border-rose-600 rounded-xl p-3 text-neutral-200 outline-none cursor-pointer"
+                  >
+                    <option value="flat">Flat Cash Discount (₹)</option>
+                    <option value="percentage">Percentage Discount (%)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="uppercase tracking-wider">Discount Value</label>
+                  <input
+                    type="number" required min="1"
+                    value={promoForm.discountValue}
+                    onChange={(e) => setPromoForm({ ...promoForm, discountValue: parseInt(e.target.value) || 0 })}
+                    className="w-full bg-[#1A1A1A] border border-neutral-800 focus:border-rose-600 rounded-xl p-3 text-neutral-200 outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="uppercase tracking-wider">Minimum Spend Required</label>
+                  <input
+                    type="number" min="0"
+                    value={promoForm.minPurchase}
+                    onChange={(e) => setPromoForm({ ...promoForm, minPurchase: parseInt(e.target.value) || 0 })}
+                    className="w-full bg-[#1A1A1A] border border-neutral-800 focus:border-rose-600 rounded-xl p-3 text-neutral-200 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="uppercase tracking-wider">Offer Description</label>
+                <textarea
+                  required placeholder="Describe the terms and benefits of this code..."
+                  value={promoForm.description}
+                  onChange={(e) => setPromoForm({ ...promoForm, description: e.target.value })}
+                  className="w-full bg-[#1A1A1A] border border-neutral-800 focus:border-rose-600 rounded-xl p-3 text-neutral-200 outline-none h-20 resize-none"
+                />
+              </div>
+
+              <button type="submit" className="w-full py-3.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold uppercase tracking-wider transition-colors cursor-pointer">
+                Publish Promo Code
               </button>
             </form>
           </div>

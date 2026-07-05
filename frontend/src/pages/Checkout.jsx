@@ -20,6 +20,12 @@ const Checkout = () => {
   const [errorMsg, setErrorMsg] = useState('');
   const [countdown, setCountdown] = useState(300);
 
+  const [promoCode, setPromoCode] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState(null);
+  const [promoError, setPromoError] = useState('');
+  const [validatingPromo, setValidatingPromo] = useState(false);
+  const [discountAmount, setDiscountAmount] = useState(0);
+
   const paymentCompletedRef = useRef(false);
 
   // Retrieve or fallback to active booking ID
@@ -160,6 +166,43 @@ const Checkout = () => {
     navigate(-1);
   };
 
+  const handleApplyPromo = async (e) => {
+    e.preventDefault();
+    if (!promoCode.trim()) return;
+    setValidatingPromo(true);
+    setPromoError('');
+    try {
+      const response = await request('/offers/validate', {
+        method: 'POST',
+        body: JSON.stringify({
+          code: promoCode,
+          amount: booking?.totalAmount || 0,
+        }),
+      });
+
+      if (response.success) {
+        setAppliedPromo(response.offer);
+        setDiscountAmount(response.discountAmount);
+        toast.success(response.message || 'Promo code applied successfully!');
+      } else {
+        setPromoError(response.message || 'Invalid promo code.');
+        toast.error(response.message || 'Invalid promo code.');
+      }
+    } catch (err) {
+      setPromoError(err.message || 'Error validating promo code.');
+      toast.error(err.message || 'Error validating promo code.');
+    } finally {
+      setValidatingPromo(false);
+    }
+  };
+
+  const handleRemovePromo = () => {
+    setAppliedPromo(null);
+    setDiscountAmount(0);
+    setPromoCode('');
+    toast.success('Promo code removed.');
+  };
+
   const handlePayment = async () => {
     if (!razorpayLoaded) {
       setErrorMsg('Payment gateway is loading. Please wait.');
@@ -180,6 +223,7 @@ const Checkout = () => {
         method: 'POST',
         body: JSON.stringify({
           bookingId: booking?._id || activeBookingId || localStorage.getItem('cv_active_booking_id'),
+          promoCode: appliedPromo ? appliedPromo.code : null,
         }),
       });
 
@@ -345,7 +389,7 @@ const Checkout = () => {
   const ticketSubtotal = booking.totalAmount;
   const convenienceFee = ticketCount * 28; // ₹28 per ticket
   const gstOnFee = Math.round(convenienceFee * 0.18); // 18% GST on handling fee
-  const orderGrandTotal = ticketSubtotal; // Backend expects ticketSubtotal only
+  const orderGrandTotal = ticketSubtotal - discountAmount; // Backend expects ticketSubtotal only minus coupon discount
 
   return (
     <div className="bg-[#0A0A0A] text-white min-h-screen py-10 px-4 md:px-8 select-none flex flex-col justify-center">
@@ -454,6 +498,56 @@ const Checkout = () => {
             </div>
           )}
 
+          {/* Promo Code Application Card */}
+          <div className="bg-[#121212]/50 border border-neutral-900 bg-gradient-to-b from-[#121212]/80 to-[#0A0A0A]/80 rounded-3xl p-6 space-y-4 shadow-xl relative overflow-hidden">
+            <h3 className="font-extrabold text-xs uppercase tracking-widest text-neutral-450 flex items-center gap-2 pb-2 border-b border-neutral-900">
+              <Sparkles className="w-4 h-4 text-rose-500 animate-pulse" />
+              Apply Promo Code
+            </h3>
+            
+            {appliedPromo ? (
+              <div className="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-xl">
+                <div className="space-y-1">
+                  <span className="font-mono text-xs font-black text-emerald-450 uppercase">{appliedPromo.code}</span>
+                  <p className="text-[10px] text-neutral-450 font-semibold mt-0.5">Discount: {appliedPromo.discountType === 'flat' ? `₹${appliedPromo.discountValue}` : `${appliedPromo.discountValue}%`}</p>
+                </div>
+                <button 
+                  onClick={handleRemovePromo}
+                  className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-rose-500 text-[10px] font-extrabold uppercase rounded-lg transition-colors cursor-pointer"
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleApplyPromo} className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Promo Code (e.g. HDFCBOGO)"
+                  value={promoCode}
+                  onChange={(e) => {
+                    setPromoCode(e.target.value.toUpperCase());
+                    setPromoError('');
+                  }}
+                  className="grow bg-neutral-950 border border-neutral-850 focus:border-purple-650 rounded-xl px-3.5 py-2 text-xs font-semibold text-neutral-200 outline-none uppercase placeholder-neutral-700 font-mono"
+                />
+                <button
+                  type="submit"
+                  disabled={validatingPromo || !promoCode.trim()}
+                  className="px-4 bg-purple-650 hover:bg-purple-700 disabled:opacity-50 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center justify-center flex-shrink-0"
+                >
+                  {validatingPromo ? 'Applying...' : 'Apply'}
+                </button>
+              </form>
+            )}
+
+            {promoError && (
+              <p className="text-[10px] text-rose-550 font-bold uppercase tracking-wide flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5" />
+                {promoError}
+              </p>
+            )}
+          </div>
+
           {/* Pricing detail breakdown card */}
           <div className="bg-[#121212]/50 border border-neutral-900 bg-gradient-to-b from-[#121212]/80 to-[#0A0A0A]/80 rounded-3xl p-6 md:p-8 space-y-6 shadow-xl relative overflow-hidden">
             <h3 className="font-extrabold text-xs uppercase tracking-widest text-neutral-450 border-b border-neutral-900 pb-4 flex items-center gap-2">
@@ -483,6 +577,16 @@ const Checkout = () => {
                 </span>
                 <span className="font-extrabold">-₹{convenienceFee + gstOnFee}</span>
               </div>
+
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-emerald-500 bg-emerald-950/15 border border-emerald-500/10 px-3 py-2 rounded-xl text-[11px] items-center">
+                  <span className="flex items-center gap-1 font-black">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Coupon Applied ({appliedPromo?.code})
+                  </span>
+                  <span className="font-extrabold">-₹{discountAmount}</span>
+                </div>
+              )}
 
               <div className="border-t border-neutral-900/60 pt-4 flex justify-between items-baseline">
                 <span className="text-neutral-200 font-extrabold text-sm uppercase tracking-wide">Grand Total</span>
