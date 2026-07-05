@@ -85,16 +85,25 @@ const Home = ({ searchQuery }) => {
   const uniqueGenres = Array.from(new Set(allMoviesCombined.flatMap((m) => m.genres || [])));
   const uniqueLanguages = Array.from(new Set(allMoviesCombined.map((m) => m.language).filter(Boolean)));
 
-  // Filter movies
-  const filteredMovies = getActiveMovies().filter((movie) => {
-    const matchesSearch = searchQuery
-      ? movie.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (movie.genres || []).some((g) => g.toLowerCase().includes(searchQuery.toLowerCase()))
-      : true;
-    const matchesGenre = selectedGenre ? (movie.genres || []).includes(selectedGenre) : true;
-    const matchesLanguage = selectedLanguage ? movie.language === selectedLanguage : true;
-    return matchesSearch && matchesGenre && matchesLanguage;
-  });
+  // Filter movies across all categories if search is active
+  const filteredMovies = (() => {
+    const sourceList = searchQuery ? allMoviesCombined : getActiveMovies();
+    // De-duplicate movies by tmdbId/id
+    const uniqueSourceList = Array.from(
+      new Map(sourceList.map((m) => [m.id || m.tmdbId || m._id, m])).values()
+    );
+
+    return uniqueSourceList.filter((movie) => {
+      const matchesSearch = searchQuery
+        ? movie.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (movie.genres || []).some((g) => g.toLowerCase().includes(searchQuery.toLowerCase())) ||
+          (movie.language || '').toLowerCase().includes(searchQuery.toLowerCase())
+        : true;
+      const matchesGenre = selectedGenre ? (movie.genres || []).includes(selectedGenre) : true;
+      const matchesLanguage = selectedLanguage ? movie.language === selectedLanguage : true;
+      return matchesSearch && matchesGenre && matchesLanguage;
+    });
+  })();
 
   const handleMovieClick = (movie) => {
     dispatch(selectMovie(movie));
@@ -193,8 +202,10 @@ const Home = ({ searchQuery }) => {
           <div className="py-24 text-center border border-dashed border-neutral-900 rounded-2xl bg-neutral-950/20">
             <Film className="w-12 h-12 text-neutral-600 mx-auto mb-4" />
             <h3 className="text-lg font-bold text-neutral-300">No movies found</h3>
-            <p className="text-neutral-500 text-sm mt-1 max-w-sm mx-auto">
-              We couldn't find any movies matching your search query or selected filter criteria. Try adjusting your filters.
+            <p className="text-neutral-500 text-sm mt-1 max-w-sm mx-auto font-semibold">
+              {searchQuery 
+                ? `We couldn't find any movies matching "${searchQuery}". Please verify the spelling or try another title.`
+                : "We couldn't find any movies matching your selected filter criteria. Try adjusting your filters."}
             </p>
           </div>
         ) : (
