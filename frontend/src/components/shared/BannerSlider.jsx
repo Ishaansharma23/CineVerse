@@ -9,6 +9,36 @@ const BannerSlider = () => {
     const [isHovered, setIsHovered] = useState(false);
     const timerRef = useRef(null);
 
+    const [showTrailer, setShowTrailer] = useState(false);
+    const [trailerUrl, setTrailerUrl] = useState('');
+    const [trailerLoading, setTrailerLoading] = useState(false);
+
+    const playTrailer = async (tmdbId) => {
+        if (!tmdbId) return;
+        setTrailerLoading(true);
+        try {
+            const res = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}/videos?api_key=143fd9ab7d108d2efe4e112a9541e6b3`);
+            const data = await res.json();
+            const youtubeTrailer = (data.results || []).find(
+                (v) => v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser')
+            );
+            if (youtubeTrailer) {
+                setTrailerUrl(`https://www.youtube.com/embed/${youtubeTrailer.key}?autoplay=1`);
+                setShowTrailer(true);
+            } else {
+                // Fallback to Dolby/IMAX Cinematic 4K intro
+                setTrailerUrl(`https://www.youtube.com/embed/d3_DjiLLDfo?autoplay=1`);
+                setShowTrailer(true);
+            }
+        } catch (err) {
+            console.error('Error fetching trailer, falling back:', err);
+            setTrailerUrl(`https://www.youtube.com/embed/d3_DjiLLDfo?autoplay=1`);
+            setShowTrailer(true);
+        } finally {
+            setTrailerLoading(false);
+        }
+    };
+
     useEffect(() => {
         let isMounted = true;
 
@@ -174,9 +204,13 @@ const BannerSlider = () => {
 
                     {/* Action Call-To-Action buttons */}
                     <div className="flex items-center gap-3 pointer-events-auto">
-                        <button className="group/btn flex items-center gap-2 bg-[#f84464] hover:bg-[#f84464]/90 text-white font-semibold text-xs sm:text-sm md:text-base px-3 py-2 sm:px-6 sm:py-3.5 rounded-xl shadow-lg shadow-[#f84464]/10 hover:shadow-[#f84464]/30 hover:scale-[1.03] active:scale-[0.98] transition-all duration-300 cursor-pointer">
+                        <button 
+                            onClick={() => playTrailer(currentBanner.tmdbId)}
+                            disabled={trailerLoading}
+                            className="group/btn flex items-center gap-2 bg-[#f84464] hover:bg-[#f84464]/90 disabled:bg-neutral-800 text-white font-semibold text-xs sm:text-sm md:text-base px-3 py-2 sm:px-6 sm:py-3.5 rounded-xl shadow-lg shadow-[#f84464]/10 hover:shadow-[#f84464]/30 hover:scale-[1.03] active:scale-[0.98] transition-all duration-300 cursor-pointer"
+                        >
                             <FaPlay className="w-3 h-1 sm:w-4 sm:h-4 fill-current group-hover/btn:translate-x-0.5 transition-transform" />
-                            Play Now
+                            {trailerLoading ? 'Loading...' : 'Play Now'}
                         </button>
                         <button className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white border border-white/15 backdrop-blur-md font-semibold text-xs sm:text-sm md:text-base px-5 py-2.5 sm:px-6 sm:py-3.5 rounded-xl hover:scale-[1.03] active:scale-[0.98] transition-all duration-300 cursor-pointer">
                             <FaInfoCircle className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -223,6 +257,27 @@ const BannerSlider = () => {
                     </button>
                 ))}
             </div>
+
+            {/* Trailer Modal */}
+            {showTrailer && (
+                <div className="fixed inset-0 bg-black/95 z-[999] flex items-center justify-center p-4">
+                    <div className="relative w-full max-w-4xl aspect-video bg-[#0A0A0A] rounded-2xl border border-neutral-800/80 overflow-hidden shadow-2xl">
+                        <button 
+                            onClick={() => { setShowTrailer(false); setTrailerUrl(''); }} 
+                            className="absolute top-4 right-4 bg-black/60 hover:bg-black/85 text-white font-bold px-3 py-1.5 rounded-xl border border-neutral-850 cursor-pointer text-xs uppercase tracking-wider z-50 transition-colors"
+                        >
+                            Close
+                        </button>
+                        <iframe 
+                            src={trailerUrl} 
+                            title="Movie Trailer" 
+                            className="w-full h-full" 
+                            allow="autoplay; encrypted-media; picture-in-picture" 
+                            allowFullScreen
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

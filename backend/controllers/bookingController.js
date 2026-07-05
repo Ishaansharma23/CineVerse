@@ -1,8 +1,13 @@
-const Booking = require("../models/Booking");
+const Booking = require("../models/bookings");
 const Show = require("../models/Show");
+const Theatre = require("../models/Theatre");
+const Screen = require("../models/Screen");
+const fs = require("fs");
+const path = require("path");
 
 const razorpay = require("../config/razorpay");
 const { calculateRefundAmount } = require("../services/refundService");
+const { sendRefundEmail } = require("../services/emailService");
 
 const {
   lockSeat,
@@ -279,9 +284,8 @@ const cancelBooking = async (req, res) => {
       });
     }
 
-    // ============================
     // CASE 2 : Payment Paid
-    // ============================
+
 
     // Show find karo
     const show = await Show.findById(
@@ -339,6 +343,25 @@ const cancelBooking = async (req, res) => {
       new Date();
 
     await booking.save();
+
+    // Populate user and show details for email dispatch
+    await booking.populate([
+      {
+        path: "user",
+      },
+      {
+        path: "show",
+        populate: {
+          path: "movie",
+        },
+      },
+    ]);
+
+    try {
+      await sendRefundEmail(booking.user.email, booking);
+    } catch (emailErr) {
+      console.error("Email dispatch failed on ticket cancel:", emailErr);
+    }
 
     // Redis unlock
     for (const seat of booking.seats) {
@@ -449,10 +472,98 @@ const getSeatLayout = async (req, res) => {
   }
 };
 
+const getAllBookingsAdmin = async (req, res) => {
+  try {
+    const bookings = await Booking.find()
+      .populate("user", "name email")
+      .populate({
+        path: "show",
+        populate: { path: "movie", select: "title" }
+      });
+    res.status(200).json({
+      success: true,
+      bookings,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+const getBookingPdf = async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: "Booking not found" });
+    }
+    const filePath = path.join(__dirname, `../tickets/${booking.bookingId}.pdf`);
+    
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)){
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    if (!fs.existsSync(filePath)) {
+      const populated = await Booking.findById(req.params.id)
+        .populate("user", "name email")
+        .populate({
+          path: "show",
+          populate: {
+            path: "screen",
+            populate: { path: "theatre" }
+          }
+        })
+        .populate({
+          path: "show",
+          populate: { path: "movie" }
+        });
+      
+      const { generateTicketPdf } = require("../services/pdfService");
+      await generateTicketPdf(populated);
+    }
+    res.download(filePath, `ticket-${booking.bookingId}.pdf`);
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const getOwnerBookings = async (req, res) => {
+  try {
+    const theatreId = req.params.theatreId;
+    const theatre = await Theatre.findById(theatreId);
+    if (!theatre) {
+      return res.status(404).json({ success: false, message: "Theatre not found" });
+    }
+    if (theatre.owner.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: "Unauthorized to access bookings of this theatre" });
+    }
+    const screens = await Screen.find({ theatre: theatreId });
+    const screenIds = screens.map(s => s._id);
+    const shows = await Show.find({ screen: { $in: screenIds } });
+    const showIds = shows.map(s => s._id);
+    
+    const bookings = await Booking.find({ show: { $in: showIds } })
+      .populate("user", "name email")
+      .populate({
+        path: "show",
+        populate: { path: "movie", select: "title" }
+      });
+      
+    res.status(200).json({ success: true, bookings });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   getMyBookings,
   getBookingById,
   createBooking,
   cancelBooking,
   getSeatLayout,
+  getAllBookingsAdmin,
+  getBookingPdf,
+  getOwnerBookings,
 };

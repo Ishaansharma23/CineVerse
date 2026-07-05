@@ -355,11 +355,52 @@ const deleteShow = async (req, res) => {
   }
 };
 
+const getShowsByMovie = async (req, res) => {
+  try {
+    const { movieId } = req.params;
+    const { date } = req.query;
+    
+    let query = {
+      movie: movieId,
+      status: "scheduled",
+    };
+    
+    if (date) {
+      const startOfDay = new Date(date);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(date);
+      endOfDay.setHours(23, 59, 59, 999);
+      query.date = { $gte: startOfDay, $lte: endOfDay };
+    }
+
+    const shows = await Show.find(query)
+      .populate("movie")
+      .populate({
+        path: "screen",
+        populate: {
+          path: "theatre",
+        },
+      });
+
+    res.status(200).json({
+      success: true,
+      message: "Shows fetched successfully",
+      shows,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createShow,
   getMyShows,
   getShowById,
   deleteShow,
   updateShow,
-  
+  getShowsByMovie,
 };

@@ -78,6 +78,30 @@ const sendTicketEmail = async (userEmail, booking, pdfPath) => {
   });
 };
 
+const sendRefundEmail = async (userEmail, booking) => {
+  await transporter.sendMail({
+    from: process.env.EMAIL_USER,
+    to: userEmail,
+    subject: "💸 CineVerse Ticket Cancellation & Refund Confirmed",
+    html: `
+      <h2>Ticket Cancelled Successfully</h2>
+      <p>Dear Customer,</p>
+      <p>Your ticket booking has been successfully cancelled and your refund has been processed.</p>
+      <hr />
+      <p><b>Booking ID:</b> ${booking.bookingId}</p>
+      <p><b>Movie:</b> ${booking.show?.movie?.title || 'Movie'}</p>
+      <p><b>Show Date & Time:</b> ${new Date(booking.show?.date).toLocaleDateString()} | ${booking.show?.startTime || ''}</p>
+      <p><b>Cancelled Seats:</b> ${booking.seats.join(", ")}</p>
+      <p><b>Total Booking Cost:</b> ₹${booking.totalAmount}</p>
+      <p><b>Refund Amount Credited:</b> ₹${booking.refundAmount} (${booking.refundPercentage || 100}% refund percentage)</p>
+      <br />
+      <p>The refund amount will be credited back to your original source payment method. Standard refunds take 5 to 7 business days to reflect in your account.</p>
+      <p>Thank you for choosing CineVerse!</p>
+    `,
+  });
+};
+
 module.exports = {
   sendTicketEmail,
+  sendRefundEmail,
 };

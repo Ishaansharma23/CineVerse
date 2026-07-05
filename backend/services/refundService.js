@@ -100,3 +100,7 @@ const calculateRefundAmount = async (booking, show) => {
   };
 };
 
+module.exports = {
+  calculateRefundAmount,
+};
+

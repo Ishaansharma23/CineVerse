@@ -7,8 +7,8 @@ const tmdbAccessToken = process.env.TMDB_ACCESS_TOKEN;
 const tmdbLanguage = process.env.TMDB_LANGUAGE || 'en-US';
 
 
-console.log("API KEY:", process.env.TMDB_API_KEY);
-console.log("TOKEN:", process.env.TMDB_ACCESS_TOKEN?.slice(0, 20));
+// console.log("API KEY:", process.env.TMDB_API_KEY);
+// console.log("TOKEN:", process.env.TMDB_ACCESS_TOKEN?.slice(0, 20));
 
 const tmdbClient = axios.create({
   baseURL: tmdbBaseUrl,

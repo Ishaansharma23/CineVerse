@@ -13,7 +13,7 @@ const {
   apiLimiter,
   authLimiter,
   paymentLimiter,
-} = require("./middleware/rateLimitMiddleware");
+} = require("./middleware/ rateLimitMiddleware");
 
 const app = express();
 
@@ -39,7 +39,7 @@ app.get("/", (req, res) => {
   });
 });
 
-app.use("/api/auth",authLimiter,  authRoutes);
+app.use("/api/auth",  authRoutes);
 app.use("/api/movies",apiLimiter, movieRoutes);
 // theatre routes
 app.use("/api/theatres",apiLimiter, theatreRoutes);

@@ -106,7 +106,7 @@ const screenSchema = new mongoose.Schema(
 
 // Automatically calculate total seats
 // Automatically generate seat layout before saving
-screenSchema.pre("save", function (next) {
+screenSchema.pre("save", function () {
 
   // Automatically calculate total seats
   this.totalSeats = this.totalRows * this.seatsPerRow;
@@ -114,7 +114,7 @@ screenSchema.pre("save", function (next) {
   // Agar seatLayout already bana hua hai
   // to dubara generate mat karo
   if (this.seatLayout.length > 0) {
-    return next();
+    return;
   }
 
   const layout = [];
@@ -146,8 +146,6 @@ screenSchema.pre("save", function (next) {
 
   // seatlayout wala part database me save hoga
   this.seatLayout = layout;
-
-  next();
 
 });
 

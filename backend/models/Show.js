@@ -36,7 +36,8 @@
     enum:["scheduled","cancelled","completed"],
     default:"scheduled"
 
-    },
+    }
+    }, {
     timestamps:true,
     });
 

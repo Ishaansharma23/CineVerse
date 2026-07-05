@@ -30,12 +30,19 @@ const sendAuthResponse = (res, user, statusCode) => {
 
 const registerUser = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, role } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
         message: 'Please provide name, email, and password',
+      });
+    }
+
+    if (role === 'admin') {
+      return res.status(400).json({
+        success: false,
+        message: 'Registration as an administrator is restricted.',
       });
     }
 
@@ -52,6 +59,7 @@ const registerUser = async (req, res) => {
       name,
       email,
       password,
+      role: role || 'user',
     });
 
     sendAuthResponse(res, user, 201);
@@ -130,10 +138,25 @@ const getMe = async (req, res) => {
     });
   }
 
+const getAllUsersAdmin = async (req, res) => {
+  try {
+    const users = await User.find().select('-password');
+    res.status(200).json({
+      success: true,
+      users,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
 
 module.exports = {
   registerUser,
   loginUser,
   getMe,
-  logoutUser
+  logoutUser,
+  getAllUsersAdmin,
 };

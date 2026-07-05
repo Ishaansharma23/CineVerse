@@ -6,6 +6,7 @@ const {
   getShowById,
   updateShow,
   deleteShow,
+  getShowsByMovie,
 } = require("../controllers/showController");
 
 const { protect, authorizeRoles } = require("../middleware/authMiddleware");
@@ -17,6 +18,9 @@ router.post("/", protect, authorizeRoles("owner"), createShow);
 
 // Logged-in owner ke theatre ke saare shows
 router.get("/my/:theatreId", protect, authorizeRoles("owner"), getMyShows);
+
+// Get shows by movie id
+router.get("/movie/:movieId", getShowsByMovie);
 
 // Single show details
 router.get("/:id", getShowById);

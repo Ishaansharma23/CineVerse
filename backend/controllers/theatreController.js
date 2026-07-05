@@ -1,4 +1,9 @@
 const Theatre = require('../models/Theatre');
+const User = require('../models/User');
+const Booking = require('../models/bookings');
+const Movie = require('../models/Movie');
+const Screen = require('../models/Screen');
+const Show = require('../models/Show');
 
 // Create Theatre
 const createTheatre = async (req, res) => {
@@ -40,9 +45,13 @@ const createTheatre = async (req, res) => {
 // Get all theatres of logged-in owner
 const getMyTheatres = async (req, res) => {
     try {
+        console.log("=== getMyTheatres debug ===");
+        console.log("Logged-in user id:", req.user?._id);
         const theatres = await Theatre.find({
             owner: req.user._id,
         });
+        console.log("Query returned theatres count:", theatres.length);
+        console.log("Theatres data:", theatres);
 
         res.status(200).json({
             success: true,
@@ -295,6 +304,149 @@ const approveTheatre = async (req , res) => {
     }
 }
 
+const getPendingTheatres = async (req, res) => {
+    try {
+        const theatres = await Theatre.find({
+            status: "pending",
+            isActive: true,
+        }).populate("owner", "name email");
+
+        res.status(200).json({
+            success: true,
+            theatres,
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
+const getAdminStats = async (req, res) => {
+    try {
+        const totalUsers = await User.countDocuments({ role: "user" });
+        const totalOwners = await User.countDocuments({ role: "owner" });
+        const totalMovies = await Movie.countDocuments();
+        const totalTheatres = await Theatre.countDocuments();
+        const totalScreens = await Screen.countDocuments();
+        const totalShows = await Show.countDocuments();
+        const pendingTheatreApprovals = await Theatre.countDocuments({ status: "pending" });
+
+        const allBookings = await Booking.find({ bookingStatus: "booked" });
+        const totalRevenue = allBookings.reduce((sum, b) => sum + b.totalAmount, 0);
+        const totalBookingsCount = allBookings.length;
+
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const todayBookings = await Booking.find({ bookingStatus: "booked", createdAt: { $gte: todayStart } });
+        const todayRevenue = todayBookings.reduce((sum, b) => sum + b.totalAmount, 0);
+        const todayBookingsCount = todayBookings.length;
+
+        const refundBookings = await Booking.find({ bookingStatus: "cancelled" });
+        const refundCount = refundBookings.length;
+
+        const recentBookings = await Booking.find({ bookingStatus: "booked" })
+            .sort({ createdAt: -1 })
+            .limit(5)
+            .populate("user", "name email")
+            .populate({
+                path: "show",
+                populate: [
+                    { path: "movie", select: "title" },
+                    { path: "screen", populate: { path: "theatre", select: "name" } }
+                ]
+            });
+
+        const recentUsers = await User.find({ role: "user" }).sort({ createdAt: -1 }).limit(5);
+        const recentOwners = await User.find({ role: "owner" }).sort({ createdAt: -1 }).limit(5);
+
+        const dailyStats = {};
+        for (let i = 0; i < 7; i++) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+            dailyStats[dateStr] = { date: dateStr, bookings: 0, revenue: 0 };
+        }
+
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        sevenDaysAgo.setHours(0, 0, 0, 0);
+        const graphBookings = await Booking.find({ bookingStatus: "booked", createdAt: { $gte: sevenDaysAgo } });
+
+        graphBookings.forEach(b => {
+            const dateStr = new Date(b.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+            if (dailyStats[dateStr]) {
+                dailyStats[dateStr].bookings += 1;
+                dailyStats[dateStr].revenue += b.totalAmount;
+            }
+        });
+        const graphData = Object.values(dailyStats).reverse();
+
+        const bookingsForTop = await Booking.find({ bookingStatus: "booked" })
+            .populate({
+                path: "show",
+                populate: [
+                    { path: "movie", select: "title" },
+                    { path: "screen", populate: { path: "theatre", select: "name" } }
+                ]
+            });
+
+        const movieMap = {};
+        const theatreMap = {};
+
+        bookingsForTop.forEach(b => {
+            if (b.show && b.show.movie) {
+                const movieTitle = b.show.movie.title;
+                movieMap[movieTitle] = (movieMap[movieTitle] || 0) + b.totalAmount;
+            }
+            if (b.show && b.show.screen && b.show.screen.theatre) {
+                const theatreName = b.show.screen.theatre.name;
+                theatreMap[theatreName] = (theatreMap[theatreName] || 0) + b.totalAmount;
+            }
+        });
+
+        const topMovies = Object.entries(movieMap)
+            .map(([title, revenue]) => ({ title, revenue }))
+            .sort((a, b) => b.revenue - a.revenue)
+            .slice(0, 5);
+
+        const topTheatres = Object.entries(theatreMap)
+            .map(([name, revenue]) => ({ name, revenue }))
+            .sort((a, b) => b.revenue - a.revenue)
+            .slice(0, 5);
+
+        res.status(200).json({
+            success: true,
+            stats: {
+                totalUsers,
+                totalOwners,
+                totalMovies,
+                totalTheatres,
+                totalScreens,
+                totalShows,
+                pendingTheatreApprovals,
+                totalRevenue,
+                totalBookings: totalBookingsCount,
+                todayRevenue,
+                todayBookings: todayBookingsCount,
+                refundCount,
+                recentBookings,
+                recentUsers,
+                recentOwners,
+                graphData,
+                topMovies,
+                topTheatres,
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
 module.exports = {
     createTheatre,
     getMyTheatres,
@@ -303,4 +455,6 @@ module.exports = {
     updateTheatre,
     deleteTheatre,
     approveTheatre,
+    getPendingTheatres,
+    getAdminStats,
 };

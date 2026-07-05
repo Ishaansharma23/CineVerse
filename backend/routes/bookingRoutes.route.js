@@ -6,11 +6,24 @@ const {
   getBookingById,
   cancelBooking,
   getSeatLayout,
+  getAllBookingsAdmin,
+  getBookingPdf,
+  getOwnerBookings,
 } = require("../controllers/bookingController");
+const { verifyTicket } = require("../controllers/ticketController");
 
 const { protect, authorizeRoles } = require("../middleware/authMiddleware");
 
 const router = express.Router();
+
+router.get("/:id/pdf", protect, getBookingPdf);
+router.get("/owner/:theatreId", protect, authorizeRoles("owner"), getOwnerBookings);
+
+// Theatre QR Verification
+router.post("/verify", protect, authorizeRoles("owner", "admin"), verifyTicket);
+
+// Admin all bookings monitor
+router.get("/admin/all", protect, authorizeRoles("admin"), getAllBookingsAdmin);
 
 // User new booking create karega
 router.post("/", protect, authorizeRoles("user"), createBooking);
