@@ -6,7 +6,7 @@ const {
   getBackdropUrl,
 } = require('./tmdbService');
 
-// TMDB Endpoint       Tumhari Category
+// TMDB Endpoint       hmari Category
 
 // now_playing    ->   trending
 // top_rated      ->   recommended
