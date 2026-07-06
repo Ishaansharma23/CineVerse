@@ -26,6 +26,11 @@ const userSchema = new mongoose.Schema(
       enum: ['user', 'owner', 'admin'],
       default: 'user',
     },
+    verificationStatus: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'approved',
+    },
   },
   {
     timestamps: true,

@@ -24,6 +24,7 @@ const sendAuthResponse = (res, user, statusCode) => {
       name: user.name,
       email: user.email,
       role: user.role,
+      verificationStatus: user.verificationStatus,
     },
   });
 };
@@ -60,6 +61,7 @@ const registerUser = async (req, res) => {
       email,
       password,
       role: role || 'user',
+      verificationStatus: role === 'owner' ? 'pending' : 'approved',
     });
 
     sendAuthResponse(res, user, 201);
@@ -153,10 +155,59 @@ const getAllUsersAdmin = async (req, res) => {
   }
 };
 
+const updatePartnerVerification = async (req, res) => {
+  try {
+    const { userId, status } = req.body;
+
+    if (!userId || !status || !['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid userId or status. Status must be approved or rejected.',
+      });
+    }
+
+    const partner = await User.findById(userId);
+    if (!partner) {
+      return res.status(404).json({
+        success: false,
+        message: 'User account not found.',
+      });
+    }
+
+    if (partner.role !== 'owner') {
+      return res.status(400).json({
+        success: false,
+        message: 'Only partner/owner accounts can be verified.',
+      });
+    }
+
+    partner.verificationStatus = status;
+    await partner.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Partner account has been successfully ${status}!`,
+      user: {
+        id: partner._id,
+        name: partner.name,
+        email: partner.email,
+        role: partner.role,
+        verificationStatus: partner.verificationStatus,
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 module.exports = {
   registerUser,
   loginUser,
   getMe,
   logoutUser,
   getAllUsersAdmin,
+  updatePartnerVerification,
 };
