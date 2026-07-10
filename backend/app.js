@@ -11,6 +11,7 @@ const screenRoutes = require("./routes/screenRoutes.route");
 const paymentRoutes = require("./routes/paymentRoutes.route");
 const offerRoutes = require("./routes/offerRoutes.route");
 const proposalRoutes = require("./routes/proposalRoutes.route");
+const aiRoutes = require("./routes/aiRoutes.route");
 const {
   apiLimiter,
   authLimiter,
@@ -56,5 +57,6 @@ app.use("/api/payment",paymentLimiter, paymentRoutes);
 // dynamic offers and proposals
 app.use("/api/offers", apiLimiter, offerRoutes);
 app.use("/api/proposals", apiLimiter, proposalRoutes);
+app.use("/api/ai", apiLimiter, aiRoutes);
 
 module.exports = app;

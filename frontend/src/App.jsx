@@ -32,6 +32,7 @@ import StreamBooking from './pages/StreamBooking';
 import ProtectedRoute from './components/shared/ProtectedRoute';
 import { TrailerProvider } from './context/TrailerContext';
 import ScrollToTop from './components/shared/ScrollToTop';
+import AIBuddy from './components/shared/AIBuddy';
 import './index.css';
 
 function App() {
@@ -170,6 +171,7 @@ function App() {
           </Routes>
         </main>
         
+        <AIBuddy />
         {!hideHeaderFooter && <Footer />}
       </div>
     </TrailerProvider>
