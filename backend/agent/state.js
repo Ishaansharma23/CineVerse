@@ -1,6 +1,6 @@
 const { Annotation } = require("@langchain/langgraph");
 
-const AgentState = Annotation.define({
+const AgentState = Annotation.Root({
   userId: {
     reducer: (x, y) => y ?? x,
     default: () => null,

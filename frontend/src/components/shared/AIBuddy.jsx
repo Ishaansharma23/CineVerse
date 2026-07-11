@@ -27,20 +27,23 @@ const AIBuddy = () => {
     setSessionId(sId);
 
     // Initial greeting message
+    const greetingName = isAuthenticated && user ? user.name : "Guest";
+    const greetingText = isAuthenticated 
+      ? `Hi ${greetingName}! 👋 I'm your CineVerse AI Buddy. You can chat with me naturally to book shows, recommend movies, reschedule, or check refunds. Try one of the suggestions below!`
+      : `Hi Guest! 👋 I'm your CineVerse AI Buddy. Please Sign In using the button at the top right to book shows, check history, or reschedule tickets!`;
+
     setMessages([
       {
         role: "assistant",
-        content: `Hi ${user?.name || "there"}! 👋 I'm your CineVerse AI Buddy. You can chat with me naturally to book shows, recommend movies, reschedule, or check refunds. Try one of the suggestions below!`,
+        content: greetingText,
       },
     ]);
-  }, [user]);
+  }, [user, isAuthenticated]);
 
   useEffect(() => {
     // Auto scroll to bottom
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
-
-  if (!isAuthenticated) return null; // Only available for logged-in users
 
   const handleSend = async (text) => {
     const query = text || inputVal;
@@ -48,6 +51,22 @@ const AIBuddy = () => {
 
     setInputVal("");
     setMessages((prev) => [...prev, { role: "user", content: query }]);
+
+    if (!isAuthenticated) {
+      setLoading(true);
+      setTimeout(() => {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: "To chat and reserve tickets with the AI Booking Buddy, please Sign In using the button at the top right of the page!",
+          },
+        ]);
+        setLoading(false);
+      }, 600);
+      return;
+    }
+
     setLoading(true);
 
     try {
