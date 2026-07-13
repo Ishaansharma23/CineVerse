@@ -13,19 +13,10 @@ const AIBuddy = () => {
   const [messages, setMessages] = useState([]);
   const [inputVal, setInputVal] = useState("");
   const [loading, setLoading] = useState(false);
-  const [sessionId, setSessionId] = useState("");
 
   const chatEndRef = useRef(null);
 
   useEffect(() => {
-    // Generate unique sessionId if not present
-    let sId = localStorage.getItem("cv_ai_session_id");
-    if (!sId) {
-      sId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      localStorage.setItem("cv_ai_session_id", sId);
-    }
-    setSessionId(sId);
-
     // Initial greeting message
     const greetingName = isAuthenticated && user ? user.name : "Guest";
     const greetingText = isAuthenticated 
@@ -72,7 +63,7 @@ const AIBuddy = () => {
     try {
       const response = await request("/ai/chat", {
         method: "POST",
-        body: JSON.stringify({ message: query, sessionId }),
+        body: JSON.stringify({ message: query }),
       });
 
       if (response.success) {

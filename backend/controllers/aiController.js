@@ -1,30 +1,35 @@
+const crypto = require("crypto");
 const graph = require("../agent/graph");
-
-const sessionStore = new Map();
-
-// Session expiry manager to prevent memory growth
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of sessionStore.entries()) {
-    if (now - value.lastUpdated > 30 * 60 * 1000) { // 30 Minutes TTL
-      sessionStore.delete(key);
-    }
-  }
-}, 10 * 60 * 1000);
+const { redisClient } = require("../config/redis");
 
 const handleChatSession = async (req, res) => {
   try {
-    const { message, sessionId } = req.body;
-    if (!message || !sessionId) {
+    const { message } = req.body;
+    if (!message) {
       return res.status(400).json({
         success: false,
-        message: "Please provide message and sessionId parameters.",
+        message: "Please provide message parameter.",
       });
     }
 
-    // Retrieve or initialize state context
-    let session = sessionStore.get(sessionId);
+    let sessionId = req.cookies.ai_session;
+    let session = null;
+
+    if (sessionId) {
+      const data = await redisClient.get(`ai_session:${sessionId}`);
+      if (data) {
+        session = JSON.parse(data);
+        if (session.userId !== req.user._id.toString()) {
+          return res.status(403).json({
+            success: false,
+            message: "Unauthorized session access.",
+          });
+        }
+      }
+    }
+
     if (!session) {
+      sessionId = crypto.randomUUID();
       session = {
         userId: req.user._id.toString(),
         sessionId: sessionId,
@@ -37,15 +42,20 @@ const handleChatSession = async (req, res) => {
         bookingId: null,
         selectedSeats: [],
         seatCount: 1,
-        lastUpdated: Date.now(),
       };
+
+      res.cookie("ai_session", sessionId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        path: "/api/ai",
+        maxAge: 30 * 60 * 1000,
+      });
     }
 
-    // Update with user query input
     session.messages.push({ role: "user", content: message });
     session.lastUpdated = Date.now();
 
-    // Invoke LangGraph compiler workflow
     const result = await graph.invoke({
       userId: req.user._id,
       sessionId: sessionId,
@@ -60,7 +70,6 @@ const handleChatSession = async (req, res) => {
       seatCount: session.seatCount,
     });
 
-    // Update stored state from output nodes
     session.movie = result.movie;
     session.theatre = result.theatre;
     session.showDate = result.showDate;
@@ -70,13 +79,16 @@ const handleChatSession = async (req, res) => {
     session.selectedSeats = result.selectedSeats;
     session.seatCount = result.seatCount;
 
-    // Append LLM response to message list
     const finalMsg = result.messages[result.messages.length - 1];
     if (finalMsg) {
       session.messages.push(finalMsg);
     }
 
-    sessionStore.set(sessionId, session);
+    await redisClient.set(
+      `ai_session:${sessionId}`,
+      JSON.stringify(session),
+      { EX: 1800 }
+    );
 
     res.status(200).json({
       success: true,
