@@ -65,6 +65,26 @@ const AgentState = Annotation.Root({
     reducer: (x, y) => y ?? x,
     default: () => null,
   },
+  genre: {
+    reducer: (x, y) => y ?? x,
+    default: () => null,
+  },
+  language: {
+    reducer: (x, y) => y ?? x,
+    default: () => null,
+  },
+  audience: {
+    reducer: (x, y) => y ?? x,
+    default: () => null,
+  },
+  mood: {
+    reducer: (x, y) => y ?? x,
+    default: () => null,
+  },
+  similarMovie: {
+    reducer: (x, y) => y ?? x,
+    default: () => null,
+  },
 });
 
 module.exports = AgentState;

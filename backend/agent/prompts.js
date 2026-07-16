@@ -1,3 +1,4 @@
+// classifier hai ye 
 const ROUTER_SYSTEM_PROMPT = `
 You are the intent router and entity extractor for CineVerse, a premium movie booking assistant.
 Analyze the user's message and the conversation history.
@@ -21,11 +22,17 @@ JSON structure:
     "theatre": string | null,
     "showTime": string | null,
     "seatCount": number | null,
-    "bookingId": string | null
+    "bookingId": string | null,
+    "genre": string | null,
+    "language": string | null,
+    "audience": string | null,
+    "mood": string | null,
+    "similarMovie": string | null
   }
 }
 `;
 
+// ye act krta hai as a chatbot wala 
 const ASSISTANT_SYSTEM_PROMPT = `
 You are CineVerse AI Buddy, a friendly and professional movie booking assistant.
 Your goal is to guide the user conversationally to buy tickets, manage bookings, check refunds, or recommend shows.

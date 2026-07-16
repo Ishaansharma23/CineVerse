@@ -48,7 +48,7 @@ const callLLM = async (systemPrompt, messages) => {
   }
 };
 
-// 1. Intent Detection Node
+// Intent Detection Node
 const intentDetectNode = async (state) => {
   const { messages } = state;
   if (!model) {
@@ -80,6 +80,11 @@ const intentDetectNode = async (state) => {
       showTime: routerData.entities?.showTime || state.showTime,
       seatCount: routerData.entities?.seatCount || state.seatCount,
       bookingId: routerData.entities?.bookingId || state.bookingId,
+      genre: routerData.entities?.genre || state.genre,
+      language: routerData.entities?.language || state.language,
+      audience: routerData.entities?.audience || state.audience,
+      mood: routerData.entities?.mood || state.mood,
+      similarMovie: routerData.entities?.similarMovie || state.similarMovie,
     };
   } catch (err) {
     console.error("Intent parsing error:", err);
@@ -87,7 +92,7 @@ const intentDetectNode = async (state) => {
   }
 };
 
-// 2. Booking Node
+// Booking Node
 const bookingNode = async (state) => {
   const { movie, theatre, showDate, showTime, seatCount, userId } = state;
 
@@ -181,7 +186,7 @@ const bookingNode = async (state) => {
   }
 };
 
-// 3. Cancellation Node
+//  Cancellation Node
 const cancellationNode = async (state) => {
   const { bookingId, userId } = state;
 
@@ -197,7 +202,7 @@ const cancellationNode = async (state) => {
   };
 };
 
-// 4. Refund Node
+// Refund Node
 const refundNode = async (state) => {
   const { bookingId, userId } = state;
 
@@ -231,7 +236,7 @@ const refundNode = async (state) => {
   };
 };
 
-// 5. Reschedule Node
+// Reschedule Node
 const rescheduleNode = async (state) => {
   const { bookingId, showTime, showDate, userId } = state;
 
@@ -272,28 +277,116 @@ const rescheduleNode = async (state) => {
   };
 };
 
-// 6. Recommendation Node
 const recommendationNode = async (state) => {
-  const { userId } = state;
+  const { genre, language, audience, mood, similarMovie, userId } = state;
   const prefs = await retrievePreferences(userId);
+  const lastMsg = state.messages[state.messages.length - 1]?.content || "";
 
-  // Search active movie list
-  const activeMovies = await Movie.find({});
-  let text = "Here are current hits playing at CineVerse matching your taste:\n\n";
+  let matchedMovie = null;
+  if (similarMovie) {
+    matchedMovie = await Movie.findOne({ title: { $regex: new RegExp(similarMovie, "i") } });
+  }
 
-  const preferencePrompt = `
-  User profile preferences: ${prefs.join(", ")}.
-  Available movies: ${activeMovies.map(m => m.title).join(", ")}.
-  Provide a friendly, customized movie suggestion list in 2 sentences.
+  let maxRuntime = null;
+  let minRuntime = null;
+
+  const underHoursMatch = lastMsg.match(/(?:under|less\s+than)\s+(\d+)\s*hours?/i);
+  if (underHoursMatch) {
+    maxRuntime = parseInt(underHoursMatch[1]) * 60;
+  }
+
+  const overHoursMatch = lastMsg.match(/(?:above|over)\s+(\d+)\s*hours?/i);
+  if (overHoursMatch) {
+    minRuntime = parseInt(overHoursMatch[1]) * 60;
+  }
+
+  const underMinsMatch = lastMsg.match(/(?:under|less\s+than)\s+(\d+)\s*(?:minutes|mins?)/i);
+  if (underMinsMatch) {
+    maxRuntime = parseInt(underMinsMatch[1]);
+  }
+
+  const overMinsMatch = lastMsg.match(/(?:above|over)\s+(\d+)\s*(?:minutes|mins?)/i);
+  if (overMinsMatch) {
+    minRuntime = parseInt(overMinsMatch[1]);
+  }
+
+  const hourMovieMatch = lastMsg.match(/(\d+)\s*hour\s+movie/i);
+  if (hourMovieMatch) {
+    const hrs = parseInt(hourMovieMatch[1]);
+    minRuntime = (hrs - 0.5) * 60;
+    maxRuntime = (hrs + 0.5) * 60;
+  }
+
+  const filter = { isActive: true };
+  if (matchedMovie) {
+    filter._id = { $ne: matchedMovie._id };
+    filter.$or = [
+      { genres: { $in: matchedMovie.genres } },
+      { language: matchedMovie.language }
+    ];
+  } else {
+    const genresToFilter = [];
+    if (genre) {
+      genresToFilter.push(genre);
+    }
+    if (audience && (audience.toLowerCase() === "family" || audience.toLowerCase() === "kids")) {
+      genresToFilter.push("family", "animation", "adventure");
+    }
+    if (genresToFilter.length > 0) {
+      filter.genres = { $in: genresToFilter.map(g => new RegExp(g, "i")) };
+    }
+    if (language) {
+      filter.language = new RegExp(language, "i");
+    }
+  }
+
+  if (maxRuntime) {
+    filter.runtime = { $lte: maxRuntime };
+  }
+  if (minRuntime) {
+    filter.runtime = { ...filter.runtime, $gte: minRuntime };
+  }
+
+  let candidateMovies = await Movie.find(filter).sort({ popularity: -1 }).limit(20);
+  if (candidateMovies.length === 0) {
+    candidateMovies = await Movie.find({ isActive: true }).sort({ popularity: -1 }).limit(20);
+  }
+
+  const movieData = candidateMovies.map(m => ({
+    title: m.title,
+    genres: m.genres,
+    language: m.language,
+    runtime: m.runtime,
+    rating: m.rating,
+    releaseYear: m.releaseDate ? new Date(m.releaseDate).getFullYear() : null,
+    overview: m.overview
+  }));
+
+  const prompt = `
+  You are CineVerse AI Buddy, recommending movies to our user.
+  User long-term preferences: ${prefs.join(", ") || "None"}
+  Current user request: "${lastMsg}"
+  Detected request parameters: genre=${genre || ""}, language=${language || ""}, audience=${audience || ""}, mood=${mood || ""}, similarMovie=${similarMovie || ""}
+  
+  Candidate movies list:
+  ${JSON.stringify(movieData, null, 2)}
+  
+  Instructions:
+  - Suggest only from the provided Candidate movies list.
+  - Never invent or hallucinate movies that are not on the candidate list.
+  - If no movies from the list match the request closely, clearly state that no matching movies are currently available, and suggest the next closest alternatives from the candidate list instead.
+  - Recommend a maximum of 5 movies.
+  - Rank the recommendations from best to worst.
+  - Provide a natural, friendly, conversational response. Explain in 1-2 sentences why each recommended movie matches the request and preferences. Do not use generic robotic lists.
   `;
 
-  const recommendationReply = await callLLM(preferencePrompt, state.messages);
+  const recommendationReply = await callLLM(prompt, state.messages);
   return {
     messages: [{ role: "assistant", content: recommendationReply }],
   };
 };
 
-// 7. Booking History Node
+//  Booking History Node
 const historyNode = async (state) => {
   const { userId } = state;
   const bookings = await getBookingHistoryTool(userId);
@@ -315,7 +408,7 @@ const historyNode = async (state) => {
   };
 };
 
-// 8. General Chat Node
+//  General Chat Node
 const generalChatNode = async (state) => {
   const reply = await callLLM(ASSISTANT_SYSTEM_PROMPT, state.messages);
   return {
