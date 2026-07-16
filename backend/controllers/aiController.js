@@ -16,19 +16,32 @@ const handleChatSession = async (req, res) => {
     let session = null;
 
     if (sessionId) {
-      const data = await redisClient.get(`ai_session:${sessionId}`);
-      if (data) {
-        session = JSON.parse(data);
-        if (session.userId !== req.user._id.toString()) {
-          return res.status(403).json({
-            success: false,
-            message: "Unauthorized session access.",
-          });
+      try {
+        const data = await redisClient.get(`ai_session:${sessionId}`);
+        if (data) {
+          session = JSON.parse(data);
+          if (session.userId !== req.user._id.toString()) {
+            return res.status(403).json({
+              success: false,
+              message: "Unauthorized session access.",
+            });
+          }
         }
+      } catch (err) {
+        console.error("Redis retrieval failure:", err);
       }
     }
 
     if (!session) {
+      try {
+        const oldSessionId = await redisClient.get(`user_ai_session:${req.user._id}`);
+        if (oldSessionId) {
+          await redisClient.del(`ai_session:${oldSessionId}`);
+        }
+      } catch (err) {
+        console.error("Redis lookup of old session failed:", err);
+      }
+
       sessionId = crypto.randomUUID();
       session = {
         userId: req.user._id.toString(),
@@ -51,6 +64,12 @@ const handleChatSession = async (req, res) => {
         path: "/api/ai",
         maxAge: 30 * 60 * 1000,
       });
+
+      try {
+        await redisClient.set(`user_ai_session:${req.user._id}`, sessionId, { EX: 1800 });
+      } catch (err) {
+        console.error("Redis saving user-to-session mapping failed:", err);
+      }
     }
 
     session.messages.push({ role: "user", content: message });
@@ -59,36 +78,41 @@ const handleChatSession = async (req, res) => {
     const result = await graph.invoke({
       userId: req.user._id,
       sessionId: sessionId,
-      messages: session.messages,
-      movie: session.movie,
-      theatre: session.theatre,
-      showDate: session.showDate,
-      showTime: session.showTime,
-      showId: session.showId,
-      bookingId: session.bookingId,
-      selectedSeats: session.selectedSeats,
-      seatCount: session.seatCount,
+      messages: session.messages || [],
+      movie: session.movie || null,
+      theatre: session.theatre || null,
+      showDate: session.showDate || null,
+      showTime: session.showTime || null,
+      showId: session.showId || null,
+      bookingId: session.bookingId || null,
+      selectedSeats: session.selectedSeats || [],
+      seatCount: session.seatCount || 1,
     });
 
-    session.movie = result.movie;
-    session.theatre = result.theatre;
-    session.showDate = result.showDate;
-    session.showTime = result.showTime;
-    session.showId = result.showId;
-    session.bookingId = result.bookingId;
-    session.selectedSeats = result.selectedSeats;
-    session.seatCount = result.seatCount;
+    session.movie = result.movie || null;
+    session.theatre = result.theatre || null;
+    session.showDate = result.showDate || null;
+    session.showTime = result.showTime || null;
+    session.showId = result.showId || null;
+    session.bookingId = result.bookingId || null;
+    session.selectedSeats = result.selectedSeats || [];
+    session.seatCount = result.seatCount || 1;
 
     const finalMsg = result.messages[result.messages.length - 1];
     if (finalMsg) {
       session.messages.push(finalMsg);
     }
 
-    await redisClient.set(
-      `ai_session:${sessionId}`,
-      JSON.stringify(session),
-      { EX: 1800 }
-    );
+    try {
+      await redisClient.set(
+        `ai_session:${sessionId}`,
+        JSON.stringify(session),
+        { EX: 1800 }
+      );
+      await redisClient.expire(`user_ai_session:${req.user._id}`, 1800);
+    } catch (err) {
+      console.error("Redis save session failure:", err);
+    }
 
     res.status(200).json({
       success: true,

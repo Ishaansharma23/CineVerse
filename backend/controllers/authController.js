@@ -126,12 +126,36 @@ const getMe = async (req, res) => {
   }
 };
 
-  const logoutUser = async (req , res) => {
-  res.cookie('token', '', { // logout pr cookie '' krdi yani khali krdi 
+  const logoutUser = async (req, res) => {
+    const sessionId = req.cookies.ai_session;
+    if (sessionId) {
+      const { redisClient } = require("../config/redis");
+      try {
+        const data = await redisClient.get(`ai_session:${sessionId}`);
+        if (data) {
+          const session = JSON.parse(data);
+          if (session.userId) {
+            await redisClient.del(`user_ai_session:${session.userId}`);
+          }
+        }
+        await redisClient.del(`ai_session:${sessionId}`);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    res.cookie('token', '', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // Ye cookie sirf HTTPS request ke saath bhejna. in production m
-      sameSite: 'strict', 
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
       expires: new Date(0),
+    });
+
+    res.clearCookie('ai_session', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/api/ai',
     });
 
     res.status(200).json({
