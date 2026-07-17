@@ -86,7 +86,7 @@ const AIBuddy = () => {
         ...prev,
         {
           role: "assistant",
-          content: "Sorry, I'm having trouble connecting to my brain right now. Make sure GEMINI_API_KEY is configured in the backend `.env` file.",
+          content: "Sorry, I'm having trouble processing that query right now. Please try again in a moment or select a suggested option.",
         },
       ]);
     } finally {

@@ -23,10 +23,13 @@ const searchMovieTool = async (query) => {
   }
 };
 
-const searchNearbyTheatresTool = async (city) => {
+const searchNearbyTheatresTool = async (query) => {
   try {
     const theatres = await Theatre.find({
-      city: { $regex: city, $options: "i" },
+      $or: [
+        { city: { $regex: query, $options: "i" } },
+        { name: { $regex: query, $options: "i" } },
+      ],
     });
     return theatres;
   } catch (err) {
@@ -47,7 +50,14 @@ const findShowsTool = async (movieId, dateStr) => {
       endOfDay.setHours(23, 59, 59, 999);
       query.date = { $gte: startOfDay, $lte: endOfDay };
     }
-    const shows = await Show.find(query).populate("screen").populate("theatre");
+    const shows = await Show.find(query)
+      .populate("movie")
+      .populate({
+        path: "screen",
+        populate: {
+          path: "theatre",
+        },
+      });
     return shows;
   } catch (err) {
     console.error("findShowsTool error:", err);
@@ -262,8 +272,10 @@ const getBookingHistoryTool = async (userId) => {
         path: "show",
         populate: [
           { path: "movie" },
-          { path: "theatre" },
-          { path: "screen" }
+          {
+            path: "screen",
+            populate: { path: "theatre" }
+          }
         ]
       })
       .sort({ createdAt: -1 });

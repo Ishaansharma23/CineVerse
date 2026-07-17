@@ -1,5 +1,5 @@
 const { Pinecone } = require("@pinecone-database/pinecone");
-const { GoogleGenAIEmbeddings } = require("@langchain/google-genai");
+const { GoogleGenerativeAIEmbeddings } = require("@langchain/google-genai");
 const UserPreference = require("../../models/UserPreference");
 
 let pineconeIndex = null;
@@ -14,9 +14,9 @@ const initPinecone = async () => {
     try {
       const pc = new Pinecone({ apiKey: process.env.PINECONE_API_KEY });
       pineconeIndex = pc.index(process.env.PINECONE_INDEX);
-      embeddings = new GoogleGenAIEmbeddings({
+      embeddings = new GoogleGenerativeAIEmbeddings({
         apiKey: process.env.GEMINI_API_KEY,
-        modelName: "embedding-001",
+        model: "embedding-001",
       });
       console.log("Pinecone index initialized successfully");
     } catch (err) {

@@ -55,6 +55,11 @@ const handleChatSession = async (req, res) => {
         bookingId: null,
         selectedSeats: [],
         seatCount: 1,
+        intent: "general_chat",
+        pendingAction: null,
+        pendingOptions: null,
+        outcomeStatus: null,
+        outcomeData: null,
       };
 
       res.cookie("ai_session", sessionId, {
@@ -87,6 +92,14 @@ const handleChatSession = async (req, res) => {
       bookingId: session.bookingId || null,
       selectedSeats: session.selectedSeats || [],
       seatCount: session.seatCount || 1,
+      intent: session.intent || "general_chat",
+      pendingAction: session.pendingAction || null,
+      pendingOptions: session.pendingOptions || null,
+      status: session.status || null,
+      nextAction: session.nextAction || null,
+      data: session.data || null,
+      actionRequired: session.actionRequired ?? true,
+      sanitizedData: session.sanitizedData || null,
     });
 
     session.movie = result.movie || null;
@@ -97,6 +110,14 @@ const handleChatSession = async (req, res) => {
     session.bookingId = result.bookingId || null;
     session.selectedSeats = result.selectedSeats || [];
     session.seatCount = result.seatCount || 1;
+    session.intent = result.intent || "general_chat";
+    session.pendingAction = result.pendingAction || null;
+    session.pendingOptions = result.pendingOptions || null;
+    session.status = result.status || null;
+    session.nextAction = result.nextAction || null;
+    session.data = result.data || null;
+    session.actionRequired = result.actionRequired ?? true;
+    session.sanitizedData = result.sanitizedData || null;
 
     const finalMsg = result.messages[result.messages.length - 1];
     if (finalMsg) {
