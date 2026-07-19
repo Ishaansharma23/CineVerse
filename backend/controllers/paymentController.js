@@ -1,4 +1,5 @@
 const Booking = require("../models/bookings");
+const Payment = require("../models/Payment");
 const razorpay = require("../config/razorpay");
 const crypto = require("crypto");
 const { completeBookingPayment } = require("../services/paymentService");
@@ -84,6 +85,15 @@ const createOrder = async (req, res) => {
 
     await booking.save(); // fir mongodb m save
 
+    // Create a new Payment record in MongoDB
+    await Payment.create({
+      booking: booking._id,
+      user: req.user._id,
+      amount: finalAmount,
+      razorpayOrderId: order.id,
+      status: "pending",
+    });
+
     // Frontend ko order details bhejo
     res.status(200).json({
       success: true,
@@ -147,7 +157,18 @@ const verifyPayment = async (req, res) => {
       });
     }
 
-    await completeBookingPayment( booking, razorpay_payment_id, razorpay_signature,);
+     await completeBookingPayment( booking, razorpay_payment_id, razorpay_signature,);
+
+    // Update corresponding Payment document
+    await Payment.findOneAndUpdate(
+      { razorpayOrderId: razorpay_order_id },
+      {
+        razorpayPaymentId: razorpay_payment_id,
+        razorpaySignature: razorpay_signature,
+        status: "captured",
+      },
+      { new: true }
+    );
 
     res.status(200).json({
       success: true,
@@ -234,6 +255,18 @@ const razorpayWebhook = async (req, res) => {
         webhookSignature
       );
 
+      // Update corresponding Payment document
+      await Payment.findOneAndUpdate(
+        { razorpayOrderId: payment.order_id },
+        {
+          razorpayPaymentId: payment.id,
+          razorpaySignature: webhookSignature,
+          status: "captured",
+          rawWebhookPayload: event,
+        },
+        { new: true, upsert: true } // use upsert: true in case the document wasn't created yet
+      );
+
       return res.status(200).json({
         success: true,
         message: "Webhook processed successfully",
@@ -274,6 +307,17 @@ const razorpayWebhook = async (req, res) => {
 
       // MongoDB save
       await booking.save();
+
+      // Update corresponding Payment document
+      await Payment.findOneAndUpdate(
+        { razorpayOrderId: payment.order_id },
+        {
+          razorpayPaymentId: payment.id,
+          status: "failed",
+          rawWebhookPayload: event,
+        },
+        { new: true, upsert: true }
+      );
 
       // Redis locks hatao
       for (const seat of booking.seats) {

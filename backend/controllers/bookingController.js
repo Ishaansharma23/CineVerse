@@ -1,4 +1,5 @@
 const Booking = require("../models/bookings");
+const Payment = require("../models/Payment");
 const Show = require("../models/Show");
 const Theatre = require("../models/Theatre");
 const Screen = require("../models/Screen");
@@ -258,6 +259,14 @@ const cancelBooking = async (req, res) => {
 
       await booking.save();
 
+      // Update corresponding Payment document
+      if (booking.orderId) {
+        await Payment.findOneAndUpdate(
+          { razorpayOrderId: booking.orderId },
+          { status: "failed" }
+        );
+      }
+
       // Redis unlock
       for (const seat of booking.seats) {
         await unlockSeat(
@@ -343,6 +352,24 @@ const cancelBooking = async (req, res) => {
       new Date();
 
     await booking.save();
+
+    // Update corresponding Payment document
+    if (booking.orderId) {
+      await Payment.findOneAndUpdate(
+        { razorpayOrderId: booking.orderId },
+        {
+          status: "refunded",
+          $push: {
+            refunds: {
+              refundId: razorpayRefund.id,
+              amount: refund.refundAmount,
+              status: "processed",
+              createdAt: new Date(),
+            },
+          },
+        }
+      );
+    }
 
     // Populate user and show details for email dispatch
     await booking.populate([

@@ -2,6 +2,7 @@ const Movie = require("../../models/Movie");
 const Theatre = require("../../models/Theatre");
 const Show = require("../../models/Show");
 const Booking = require("../../models/bookings");
+const Payment = require("../../models/Payment");
 const { lockSeat, unlockSeat, getLockedSeats } = require("../../services/seatLockService");
 const { calculateRefundAmount } = require("../../services/refundService");
 const { sendRefundEmail } = require("../../services/emailService");
@@ -210,6 +211,14 @@ const cancelBookingTool = async (userId, bookingId) => {
       booking.paymentStatus = "failed";
       await booking.save();
 
+      // Update corresponding Payment document
+      if (booking.orderId) {
+        await Payment.findOneAndUpdate(
+          { razorpayOrderId: booking.orderId },
+          { status: "failed" }
+        );
+      }
+
       for (const seat of booking.seats) {
         await unlockSeat(booking.show.toString(), seat);
       }
@@ -240,6 +249,24 @@ const cancelBookingTool = async (userId, bookingId) => {
     booking.refundId = razorpayRefund.id;
     booking.refundAmount = refund.refundAmount;
     await booking.save();
+
+    // Update corresponding Payment document
+    if (booking.orderId) {
+      await Payment.findOneAndUpdate(
+        { razorpayOrderId: booking.orderId },
+        {
+          status: "refunded",
+          $push: {
+            refunds: {
+              refundId: razorpayRefund.id,
+              amount: refund.refundAmount,
+              status: "processed",
+              createdAt: new Date(),
+            },
+          },
+        }
+      );
+    }
 
     // Release Redis seat locks
     for (const seat of booking.seats) {

@@ -2332,7 +2332,7 @@ const Dashboard = () => {
               {detailModal.type === 'revenue' && (
                 <div className="space-y-6">
                   {/* Financial breakdown summary */}
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     <div className="p-4 bg-neutral-900/30 border border-neutral-850 rounded-2xl text-center space-y-1">
                       <span className="text-[9px] uppercase font-bold text-neutral-550">Total Gross</span>
                       <p className="text-sm font-black text-rose-500">₹{adminStats.totalRevenue?.toLocaleString()}</p>
@@ -2342,8 +2342,16 @@ const Dashboard = () => {
                       <p className="text-sm font-black text-rose-500">₹{adminStats.todayRevenue?.toLocaleString()}</p>
                     </div>
                     <div className="p-4 bg-neutral-900/30 border border-neutral-850 rounded-2xl text-center space-y-1">
-                      <span className="text-[9px] uppercase font-bold text-neutral-550">Refunds Processed</span>
+                      <span className="text-[9px] uppercase font-bold text-neutral-550">Refund Count</span>
                       <p className="text-sm font-black text-neutral-300">{adminStats.refundCount || 0}</p>
+                    </div>
+                    <div className="p-4 bg-neutral-900/30 border border-neutral-850 rounded-2xl text-center space-y-1">
+                      <span className="text-[9px] uppercase font-bold text-neutral-550">Total Refunded</span>
+                      <p className="text-sm font-black text-rose-500">₹{adminStats.totalRefundedAmount?.toLocaleString() || 0}</p>
+                    </div>
+                    <div className="p-4 bg-neutral-900/30 border border-neutral-850 rounded-2xl text-center space-y-1">
+                      <span className="text-[9px] uppercase font-bold text-neutral-550">Net Profit</span>
+                      <p className="text-sm font-black text-emerald-500">₹{adminStats.profit?.toLocaleString() || 0}</p>
                     </div>
                   </div>
 

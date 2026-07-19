@@ -14,8 +14,12 @@ const {
   getBookingHistoryTool,
   rescheduleBookingTool,
 } = require("./tools/backendTools");
+const Booking = require("../models/bookings");
+const Payment = require("../models/Payment");
+const razorpay = require("../config/razorpay");
+const { lockSeat, unlockSeat } = require("../services/seatLockService");
 
-// Initialize LLM safely
+// Initialize LLM 
 let model = null;
 const initModel = () => {
   if (process.env.GEMINI_API_KEY) {
@@ -100,6 +104,24 @@ const parseNaturalDate = (dateStr) => {
   return null;
 };
 
+const findNearbySeats = (layout, seatName, limit = 3) => {
+  const row = seatName.charAt(0);
+  const num = parseInt(seatName.slice(1));
+  const available = layout.filter(s => s.available);
+  return available
+    .map(s => {
+      const sRow = s.name.charAt(0);
+      const sNum = parseInt(s.name.slice(1));
+      const rowDist = Math.abs(sRow.charCodeAt(0) - row.charCodeAt(0));
+      const colDist = Math.abs(sNum - num);
+      const dist = rowDist * 10 + colDist;
+      return { seat: s.name, dist };
+    })
+    .sort((a, b) => a.dist - b.dist)
+    .slice(0, limit)
+    .map(item => item.seat);
+};
+
 const resolvePendingAction = (state, lastMsg) => {
   const msgLower = lastMsg.toLowerCase().trim();
   const confirmationWords = ["yes", "confirm", "reserve", "book", "sure", "ha", "okay", "go ahead", "yep", "yup", "ok", "fine", "that works", "that one", "tomorrow works", "first one", "second one"];
@@ -152,6 +174,28 @@ const resolvePendingAction = (state, lastMsg) => {
       updates.pendingAction = null;
       updates.pendingOptions = null;
     } else if (isRejected) {
+      updates.pendingAction = null;
+      updates.pendingOptions = null;
+    }
+  } else if (state.pendingAction === "selectSeats") {
+    const seatRegex = /\b[a-zA-Z]\d+\b/g;
+    const matches = msgLower.match(seatRegex);
+    if (matches && matches.length > 0) {
+      updates.selectedSeats = matches.map(s => s.toUpperCase());
+      updates.seatCount = matches.length;
+      updates.intent = "booking";
+      updates.pendingAction = null;
+      updates.pendingOptions = null;
+    }
+  } else if (state.pendingAction === "confirmBooking") {
+    if (isConfirmed) {
+      updates.status = "CREATE_PAYMENT_ORDER";
+      updates.intent = "booking";
+      updates.pendingAction = null;
+      updates.pendingOptions = null;
+    } else if (isRejected) {
+      updates.status = "BOOKING_CANCELLED";
+      updates.intent = "booking";
       updates.pendingAction = null;
       updates.pendingOptions = null;
     }
@@ -262,6 +306,10 @@ const shouldResumePendingWorkflow = (msg, pendingAction, pendingOptions) => {
   }
   if (pendingAction === "selectAlternativeShow" && pendingOptions?.timings) {
     if (pendingOptions.timings.some(t => m.includes(t.toLowerCase()))) return true;
+  }
+  if (pendingAction === "selectSeats") {
+    const seatRegex = /\b[a-zA-Z]\d+\b/;
+    if (seatRegex.test(m)) return true;
   }
 
   const numberWords = ["first", "second", "third", "one", "two", "three"];
@@ -543,8 +591,26 @@ const intentDetectNode = async (state) => {
 
 // Booking Node
 const bookingNode = async (state) => {
-  const { movie, theatre, showDate, showTime, seatCount, userId } = state;
+  const { movie, theatre, showDate, showTime, selectedSeats, seatCount, userId } = state;
   logTransition("bookingNode", state);
+
+  // If user cancelled, release seat locks and reset
+  if (state.status === "BOOKING_CANCELLED") {
+    if (selectedSeats && selectedSeats.length > 0 && state.showId) {
+      for (const seat of selectedSeats) {
+        await unlockSeat(state.showId, seat);
+      }
+    }
+    return {
+      status: "BOOKING_CANCELLED",
+      nextAction: "SHOW_ERROR",
+      data: { message: "Booking was cancelled. What else can I help you with?" },
+      pendingAction: null,
+      pendingOptions: null,
+      selectedSeats: [],
+      actionRequired: true
+    };
+  }
 
   if (!movie) {
     return {
@@ -599,7 +665,7 @@ const bookingNode = async (state) => {
 
   const selectedTheatre = theatres[0];
 
-  const dateStr = parseNaturalDate(showDate) || new Date().toISOString().split("T")[0];
+  const dateStr = parseNaturalDate(showDate) || formatLocalDate(new Date());
   console.log("  [bookingNode] Resolved date:", showDate, "→", dateStr);
 
   const shows = await findShowsTool(selectedMovie._id, null);
@@ -618,7 +684,7 @@ const bookingNode = async (state) => {
   }
 
   const targetShowsOnDate = matchingShows.filter(s => {
-    const showDateStr = new Date(s.date || s.createdAt).toISOString().split("T")[0];
+    const showDateStr = formatLocalDate(new Date(s.date || s.createdAt));
     return showDateStr === dateStr;
   });
 
@@ -637,71 +703,221 @@ const bookingNode = async (state) => {
     };
   }
 
+  // Showtime selection stage
+  if (!showTime && targetShowsOnDate.length > 1) {
+    const availableTimings = targetShowsOnDate.map(s => s.startTime);
+    return {
+      status: "SHOWTIME_REQUIRED",
+      nextAction: "ASK_SHOWTIME",
+      data: { selectedMovie: selectedMovie.title, selectedTheatre: selectedTheatre.name, date: dateStr, availableTimings },
+      pendingAction: "selectAlternativeShow",
+      pendingOptions: { timings: availableTimings },
+      actionRequired: true
+    };
+  }
+
+  // Select target show
   let targetShow = targetShowsOnDate[0];
-  let timeMismatch = false;
   if (showTime) {
     const matchedTime = targetShowsOnDate.find(s => s.startTime.includes(showTime) || showTime.includes(s.startTime));
     if (matchedTime) {
       targetShow = matchedTime;
     } else {
-      timeMismatch = true;
+      const availableTimings = targetShowsOnDate.map(s => s.startTime);
+      return {
+        status: "TIME_MISMATCH",
+        nextAction: "SHOW_ALTERNATIVES",
+        data: { selectedMovie: selectedMovie.title, selectedTheatre: selectedTheatre.name, date: dateStr, searchedTime: showTime, availableTimings: availableTimings },
+        actionRequired: true,
+        pendingAction: "selectAlternativeShow",
+        pendingOptions: { timings: availableTimings }
+      };
     }
   }
 
-  if (timeMismatch) {
-    const availableTimings = targetShowsOnDate.map(s => s.startTime);
-    return {
-      status: "TIME_MISMATCH",
-      nextAction: "SHOW_ALTERNATIVES",
-      data: { selectedMovie: selectedMovie.title, selectedTheatre: selectedTheatre.name, date: dateStr, searchedTime: showTime, availableTimings: availableTimings },
-      actionRequired: true,
-      pendingAction: "selectAlternativeShow",
-      pendingOptions: { timings: availableTimings }
-    };
-  }
-
-  // Use status === SEAT_CONFIRMED (set by resolvePendingAction) instead of checking pendingAction
-  const isConfirmed = state.status === "SEAT_CONFIRMED";
-  console.log("  [bookingNode] Seat confirmation check: status =", state.status, "isConfirmed =", isConfirmed);
-
-  if (!isConfirmed) {
+  // Seat Display / Selection Stage
+  if (!selectedSeats || selectedSeats.length === 0) {
     const layout = await getSeatLayoutTool(targetShow._id);
-    const available = layout.filter(s => s.available);
-    const seatsToSuggest = available.slice(0, seatCount).map(s => s.name).join(", ");
+    const available = layout.filter(s => s.available).map(s => s.name);
     return {
-      showId: targetShow._id,
-      status: "SEATS_SUGGESTED",
-      nextAction: "CONFIRM_BOOKING",
-      data: { selectedMovie: selectedMovie.title, selectedTheatre: selectedTheatre.name, showTime: targetShow.startTime, suggestedSeats: seatsToSuggest, seatCount: seatCount },
-      actionRequired: true,
-      pendingAction: "confirmSeatReservation",
-      pendingOptions: { showId: targetShow._id, seats: seatsToSuggest }
+      showId: targetShow._id.toString(),
+      showTime: targetShow.startTime,
+      status: "PENDING_SELECTION",
+      nextAction: "ASK_SEATS",
+      data: { selectedMovie: selectedMovie.title, selectedTheatre: selectedTheatre.name, date: dateStr, showTime: targetShow.startTime, availableSeats: available },
+      pendingAction: "selectSeats",
+      pendingOptions: { seats: available },
+      actionRequired: true
     };
   }
 
-  // Seat confirmed — proceed with reservation
-  console.log("  [bookingNode] Reserving seats for showId:", state.showId || targetShow._id);
-  const result = await reserveSeatsTool(userId, state.showId || targetShow._id, seatCount);
-  if (result.success) {
+  // Create payment order stage (user confirmed booking summary)
+  if (state.status === "CREATE_PAYMENT_ORDER") {
+    const ticketPrice = targetShow.price;
+    const totalTicketPrice = ticketPrice * selectedSeats.length;
+    const convenienceFee = 30 * selectedSeats.length;
+    const gst = Math.round(0.18 * (totalTicketPrice + convenienceFee));
+    const grandTotal = totalTicketPrice + convenienceFee + gst;
+
+    const bookingId = `CV-${Date.now()}`;
+    const booking = await Booking.create({
+      user: userId,
+      show: targetShow._id,
+      seats: selectedSeats,
+      totalAmount: grandTotal,
+      bookingId,
+      paymentStatus: "pending",
+      bookingStatus: "pending",
+      bookingExpiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minute lock
+    });
+
+    const order = await razorpay.orders.create({
+      amount: grandTotal * 100, // in paisa
+      currency: "INR",
+      receipt: bookingId,
+    });
+
+    booking.orderId = order.id;
+    await booking.save();
+
+    await Payment.create({
+      booking: booking._id,
+      user: userId,
+      amount: grandTotal,
+      razorpayOrderId: order.id,
+      status: "pending",
+    });
+
     return {
-      bookingId: result.booking.bookingId,
-      status: "BOOKING_SUCCESS",
-      nextAction: "COMPLETE_BOOKING",
-      data: { bookingId: result.booking.bookingId, seats: result.booking.seats, movie: selectedMovie.title, theatre: selectedTheatre.name, startTime: targetShow.startTime },
-      pendingAction: null,
-      pendingOptions: null,
-      actionRequired: true
-    };
-  } else {
-    return {
-      status: "BOOKING_FAILED",
-      nextAction: "SHOW_ERROR",
-      data: { errorMessage: result.message },
-      pendingAction: null,
-      pendingOptions: null,
-      actionRequired: true
+      bookingId: booking.bookingId,
+      status: "PENDING_PAYMENT",
+      nextAction: "WAIT_FOR_PAYMENT",
+      data: {
+        message: "Please complete the payment to confirm your booking.",
+        orderId: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        bookingId: booking._id.toString()
+      },
+      actionRequired: {
+        type: "navigate",
+        payload: "/checkout",
+        bookingId: booking._id.toString()
+      }
     };
   }
+
+  // Verify and lock seats stage
+  if (state.status !== "SEATS_LOCKED" && state.status !== "PENDING_PAYMENT") {
+    const layout = await getSeatLayoutTool(targetShow._id);
+    const unavailableSeats = [];
+    for (const seat of selectedSeats) {
+      const seatObj = layout.find(s => s.name === seat);
+      if (!seatObj || !seatObj.available) {
+        unavailableSeats.push(seat);
+      }
+    }
+
+    if (unavailableSeats.length > 0) {
+      const suggestions = [];
+      for (const seat of unavailableSeats) {
+        suggestions.push(...findNearbySeats(layout, seat));
+      }
+      const uniqueSuggestions = [...new Set(suggestions)].filter(s => !selectedSeats.includes(s));
+      return {
+        showId: targetShow._id.toString(),
+        status: "SEATS_UNAVAILABLE",
+        nextAction: "SHOW_ALTERNATIVES",
+        data: {
+          selectedMovie: selectedMovie.title,
+          selectedTheatre: selectedTheatre.name,
+          date: dateStr,
+          showTime: targetShow.startTime,
+          unavailableSeats,
+          suggestions: uniqueSuggestions
+        },
+        pendingAction: "selectSeats",
+        pendingOptions: { seats: uniqueSuggestions },
+        actionRequired: true,
+        selectedSeats: [] // Reset selected seats so they can select again
+      };
+    }
+
+    // Attempt Redis Seat Lock
+    const lockedList = [];
+    let lockFailed = false;
+    for (const seat of selectedSeats) {
+      const lockResult = await lockSeat(targetShow._id.toString(), seat, userId);
+      if (!lockResult.success) {
+        lockFailed = true;
+        break;
+      }
+      lockedList.push(seat);
+    }
+
+    if (lockFailed) {
+      for (const ls of lockedList) {
+        await unlockSeat(targetShow._id.toString(), ls);
+      }
+      const layout2 = await getSeatLayoutTool(targetShow._id);
+      const suggestions = [];
+      for (const seat of selectedSeats) {
+        suggestions.push(...findNearbySeats(layout2, seat));
+      }
+      const uniqueSuggestions = [...new Set(suggestions)].filter(s => !selectedSeats.includes(s));
+      return {
+        showId: targetShow._id.toString(),
+        status: "SEATS_UNAVAILABLE",
+        nextAction: "SHOW_ALTERNATIVES",
+        data: {
+          selectedMovie: selectedMovie.title,
+          selectedTheatre: selectedTheatre.name,
+          date: dateStr,
+          showTime: targetShow.startTime,
+          unavailableSeats: selectedSeats,
+          suggestions: uniqueSuggestions
+        },
+        pendingAction: "selectSeats",
+        pendingOptions: { seats: uniqueSuggestions },
+        actionRequired: true,
+        selectedSeats: []
+      };
+    }
+
+    // Socket notify locked
+    try {
+      const io = getIO();
+      io.to(targetShow._id.toString()).emit("seat-locked", { showId: targetShow._id, seats: selectedSeats, lockedBy: userId });
+    } catch (e) {}
+  }
+
+  // Display summary (SEATS_LOCKED)
+  const ticketPrice = targetShow.price;
+  const totalTicketPrice = ticketPrice * selectedSeats.length;
+  const convenienceFee = 30 * selectedSeats.length;
+  const gst = Math.round(0.18 * (totalTicketPrice + convenienceFee));
+  const grandTotal = totalTicketPrice + convenienceFee + gst;
+
+  return {
+    showId: targetShow._id.toString(),
+    status: "SEATS_LOCKED",
+    nextAction: "SHOW_BOOKING_SUMMARY",
+    data: {
+      movie: selectedMovie.title,
+      theatre: selectedTheatre.name,
+      date: dateStr,
+      showtime: targetShow.startTime,
+      seats: selectedSeats,
+      ticketPrice,
+      totalTicketPrice,
+      convenienceFee,
+      gst,
+      grandTotal
+    },
+    pendingAction: "confirmBooking",
+    pendingOptions: { seats: selectedSeats },
+    actionRequired: true
+  };
 };
 
 //  Cancellation Node

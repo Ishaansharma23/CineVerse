@@ -67,11 +67,11 @@ const handleChatSession = async (req, res) => {
         secure: process.env.NODE_ENV === "production",
         sameSite: "strict",
         path: "/api/ai",
-        maxAge: 30 * 60 * 1000,
+        maxAge: 15 * 60 * 1000,
       });
 
       try {
-        await redisClient.set(`user_ai_session:${req.user._id}`, sessionId, { EX: 1800 });
+        await redisClient.set(`user_ai_session:${req.user._id}`, sessionId, { EX: 900 });
       } catch (err) {
         console.error("Redis saving user-to-session mapping failed:", err);
       }
@@ -128,9 +128,9 @@ const handleChatSession = async (req, res) => {
       await redisClient.set(
         `ai_session:${sessionId}`,
         JSON.stringify(session),
-        { EX: 1800 }
+        { EX: 900 }
       );
-      await redisClient.expire(`user_ai_session:${req.user._id}`, 1800);
+      await redisClient.expire(`user_ai_session:${req.user._id}`, 900);
     } catch (err) {
       console.error("Redis save session failure:", err);
     }
@@ -140,6 +140,7 @@ const handleChatSession = async (req, res) => {
       message: finalMsg ? finalMsg.content : "No response.",
       action: result.actionRequired ? result.actionRequired.type : null,
       payload: result.actionRequired ? result.actionRequired.payload : null,
+      bookingId: (result.actionRequired && result.actionRequired.bookingId) ? result.actionRequired.bookingId : null,
     });
   } catch (error) {
     console.error("AI Controller error:", error);

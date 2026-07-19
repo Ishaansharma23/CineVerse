@@ -345,6 +345,8 @@ const getAdminStats = async (req, res) => {
 
         const refundBookings = await Booking.find({ bookingStatus: "cancelled" });
         const refundCount = refundBookings.length;
+        const totalRefundedAmount = refundBookings.reduce((sum, b) => sum + (b.refundAmount || 0), 0);
+        const profit = totalRevenue - totalRefundedAmount;
 
         const recentBookings = await Booking.find({ bookingStatus: "booked" })
             .sort({ createdAt: -1 })
@@ -431,6 +433,8 @@ const getAdminStats = async (req, res) => {
                 todayRevenue,
                 todayBookings: todayBookingsCount,
                 refundCount,
+                totalRefundedAmount,
+                profit,
                 recentBookings,
                 recentUsers,
                 recentOwners,
