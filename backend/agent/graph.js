@@ -19,7 +19,7 @@ const Payment = require("../models/Payment");
 const razorpay = require("../config/razorpay");
 const { lockSeat, unlockSeat } = require("../services/seatLockService");
 
-// Initialize LLM 
+// Initialize LLM
 let model = null;
 const initModel = () => {
   if (process.env.GEMINI_API_KEY) {
@@ -67,7 +67,31 @@ const parseNaturalDate = (dateStr) => {
     return formatLocalDate(t);
   }
 
-  const monthNames = { jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2, apr: 3, april: 3, may: 4, jun: 5, june: 5, jul: 6, july: 6, aug: 7, august: 7, sep: 8, september: 8, oct: 9, october: 9, nov: 10, november: 10, dec: 11, december: 11 };
+  const monthNames = {
+    jan: 0,
+    january: 0,
+    feb: 1,
+    february: 1,
+    mar: 2,
+    march: 2,
+    apr: 3,
+    april: 3,
+    may: 4,
+    jun: 5,
+    june: 5,
+    jul: 6,
+    july: 6,
+    aug: 7,
+    august: 7,
+    sep: 8,
+    september: 8,
+    oct: 9,
+    october: 9,
+    nov: 10,
+    november: 10,
+    dec: 11,
+    december: 11,
+  };
 
   const match1 = s.match(/^(\d{1,2})\s+(\w+)$/);
   if (match1) {
@@ -107,9 +131,9 @@ const parseNaturalDate = (dateStr) => {
 const findNearbySeats = (layout, seatName, limit = 3) => {
   const row = seatName.charAt(0);
   const num = parseInt(seatName.slice(1));
-  const available = layout.filter(s => s.available);
+  const available = layout.filter((s) => s.available);
   return available
-    .map(s => {
+    .map((s) => {
       const sRow = s.name.charAt(0);
       const sNum = parseInt(s.name.slice(1));
       const rowDist = Math.abs(sRow.charCodeAt(0) - row.charCodeAt(0));
@@ -119,22 +143,51 @@ const findNearbySeats = (layout, seatName, limit = 3) => {
     })
     .sort((a, b) => a.dist - b.dist)
     .slice(0, limit)
-    .map(item => item.seat);
+    .map((item) => item.seat);
 };
 
 const resolvePendingAction = (state, lastMsg) => {
   const msgLower = lastMsg.toLowerCase().trim();
-  const confirmationWords = ["yes", "confirm", "reserve", "book", "sure", "ha", "okay", "go ahead", "yep", "yup", "ok", "fine", "that works", "that one", "tomorrow works", "first one", "second one"];
-  const rejectionWords = ["no", "cancel", "stop", "nevermind", "no thanks", "nope", "nay"];
+  const confirmationWords = [
+    "yes",
+    "confirm",
+    "reserve",
+    "book",
+    "sure",
+    "ha",
+    "okay",
+    "go ahead",
+    "yep",
+    "yup",
+    "ok",
+    "fine",
+    "that works",
+    "that one",
+    "tomorrow works",
+    "first one",
+    "second one",
+  ];
+  const rejectionWords = [
+    "no",
+    "cancel",
+    "stop",
+    "nevermind",
+    "no thanks",
+    "nope",
+    "nay",
+  ];
 
-  const isConfirmed = confirmationWords.some(w => msgLower.includes(w));
-  const isRejected = rejectionWords.some(w => msgLower.includes(w));
+  const isConfirmed = confirmationWords.some((w) => msgLower.includes(w));
+  const isRejected = rejectionWords.some((w) => msgLower.includes(w));
 
   const updates = {};
-  
+
   if (!state.pendingAction) return null;
 
-  if (state.pendingAction === "confirmAlternativeTheatre" && state.pendingOptions?.theatre) {
+  if (
+    state.pendingAction === "confirmAlternativeTheatre" &&
+    state.pendingOptions?.theatre
+  ) {
     if (isConfirmed) {
       updates.theatre = state.pendingOptions.theatre;
       updates.intent = "booking";
@@ -144,7 +197,10 @@ const resolvePendingAction = (state, lastMsg) => {
       updates.pendingAction = null;
       updates.pendingOptions = null;
     }
-  } else if (state.pendingAction === "confirmAlternativeDate" && state.pendingOptions?.date) {
+  } else if (
+    state.pendingAction === "confirmAlternativeDate" &&
+    state.pendingOptions?.date
+  ) {
     if (isConfirmed) {
       updates.showDate = state.pendingOptions.date;
       updates.intent = "booking";
@@ -154,7 +210,10 @@ const resolvePendingAction = (state, lastMsg) => {
       updates.pendingAction = null;
       updates.pendingOptions = null;
     }
-  } else if (state.pendingAction === "confirmAlternativeShow" && state.pendingOptions?.showId) {
+  } else if (
+    state.pendingAction === "confirmAlternativeShow" &&
+    state.pendingOptions?.showId
+  ) {
     if (isConfirmed) {
       updates.showId = state.pendingOptions.showId;
       if (state.pendingOptions.startTime) {
@@ -181,7 +240,7 @@ const resolvePendingAction = (state, lastMsg) => {
     const seatRegex = /\b[a-zA-Z]\d+\b/g;
     const matches = msgLower.match(seatRegex);
     if (matches && matches.length > 0) {
-      updates.selectedSeats = matches.map(s => s.toUpperCase());
+      updates.selectedSeats = matches.map((s) => s.toUpperCase());
       updates.seatCount = matches.length;
       updates.intent = "booking";
       updates.pendingAction = null;
@@ -199,18 +258,36 @@ const resolvePendingAction = (state, lastMsg) => {
       updates.pendingAction = null;
       updates.pendingOptions = null;
     }
-  } else if (state.pendingAction === "selectAlternativeTheatre" && state.pendingOptions?.theatres?.length > 0) {
+  } else if (
+    state.pendingAction === "selectAlternativeTheatre" &&
+    state.pendingOptions?.theatres?.length > 0
+  ) {
     let choiceIdx = -1;
     if (isConfirmed && state.pendingOptions.theatres.length === 1) {
       choiceIdx = 0;
-    } else if (msgLower.includes("first") || msgLower.includes(" 1") || msgLower === "1" || msgLower.includes("one")) {
+    } else if (
+      msgLower.includes("first") ||
+      msgLower.includes(" 1") ||
+      msgLower === "1" ||
+      msgLower.includes("one")
+    ) {
       choiceIdx = 0;
-    } else if (msgLower.includes("second") || msgLower.includes(" 2") || msgLower === "2" || msgLower.includes("two")) {
+    } else if (
+      msgLower.includes("second") ||
+      msgLower.includes(" 2") ||
+      msgLower === "2" ||
+      msgLower.includes("two")
+    ) {
       choiceIdx = 1;
-    } else if (msgLower.includes("third") || msgLower.includes(" 3") || msgLower === "3" || msgLower.includes("three")) {
+    } else if (
+      msgLower.includes("third") ||
+      msgLower.includes(" 3") ||
+      msgLower === "3" ||
+      msgLower.includes("three")
+    ) {
       choiceIdx = 2;
     }
-    
+
     if (choiceIdx === -1) {
       for (let i = 0; i < state.pendingOptions.theatres.length; i++) {
         if (msgLower.includes(state.pendingOptions.theatres[i].toLowerCase())) {
@@ -226,15 +303,33 @@ const resolvePendingAction = (state, lastMsg) => {
       updates.pendingAction = null;
       updates.pendingOptions = null;
     }
-  } else if (state.pendingAction === "selectAlternativeDate" && state.pendingOptions?.dates?.length > 0) {
+  } else if (
+    state.pendingAction === "selectAlternativeDate" &&
+    state.pendingOptions?.dates?.length > 0
+  ) {
     let choiceIdx = -1;
     if (isConfirmed && state.pendingOptions.dates.length === 1) {
       choiceIdx = 0;
-    } else if (msgLower.includes("first") || msgLower.includes(" 1") || msgLower === "1" || msgLower.includes("one")) {
+    } else if (
+      msgLower.includes("first") ||
+      msgLower.includes(" 1") ||
+      msgLower === "1" ||
+      msgLower.includes("one")
+    ) {
       choiceIdx = 0;
-    } else if (msgLower.includes("second") || msgLower.includes(" 2") || msgLower === "2" || msgLower.includes("two")) {
+    } else if (
+      msgLower.includes("second") ||
+      msgLower.includes(" 2") ||
+      msgLower === "2" ||
+      msgLower.includes("two")
+    ) {
       choiceIdx = 1;
-    } else if (msgLower.includes("third") || msgLower.includes(" 3") || msgLower === "3" || msgLower.includes("three")) {
+    } else if (
+      msgLower.includes("third") ||
+      msgLower.includes(" 3") ||
+      msgLower === "3" ||
+      msgLower.includes("three")
+    ) {
       choiceIdx = 2;
     }
 
@@ -253,15 +348,33 @@ const resolvePendingAction = (state, lastMsg) => {
       updates.pendingAction = null;
       updates.pendingOptions = null;
     }
-  } else if (state.pendingAction === "selectAlternativeShow" && state.pendingOptions?.timings?.length > 0) {
+  } else if (
+    state.pendingAction === "selectAlternativeShow" &&
+    state.pendingOptions?.timings?.length > 0
+  ) {
     let choiceIdx = -1;
     if (isConfirmed && state.pendingOptions.timings.length === 1) {
       choiceIdx = 0;
-    } else if (msgLower.includes("first") || msgLower.includes(" 1") || msgLower === "1" || msgLower.includes("one")) {
+    } else if (
+      msgLower.includes("first") ||
+      msgLower.includes(" 1") ||
+      msgLower === "1" ||
+      msgLower.includes("one")
+    ) {
       choiceIdx = 0;
-    } else if (msgLower.includes("second") || msgLower.includes(" 2") || msgLower === "2" || msgLower.includes("two")) {
+    } else if (
+      msgLower.includes("second") ||
+      msgLower.includes(" 2") ||
+      msgLower === "2" ||
+      msgLower.includes("two")
+    ) {
       choiceIdx = 1;
-    } else if (msgLower.includes("third") || msgLower.includes(" 3") || msgLower === "3" || msgLower.includes("three")) {
+    } else if (
+      msgLower.includes("third") ||
+      msgLower.includes(" 3") ||
+      msgLower === "3" ||
+      msgLower.includes("three")
+    ) {
       choiceIdx = 2;
     }
 
@@ -293,19 +406,41 @@ const shouldResumePendingWorkflow = (msg, pendingAction, pendingOptions) => {
   const m = msg.toLowerCase().trim();
   const words = m.replace(/[^a-z0-9 ]/g, "").split(/\s+/);
 
-  const resumeWords = ["continue", "resume", "yes", "proceed", "ok", "okay", "sure", "yep", "yup", "fine"];
-  const resumePhrases = ["go ahead", "that works", "okay continue", "sounds good"];
-  if (resumeWords.some(w => words.includes(w))) return true;
-  if (resumePhrases.some(p => m.includes(p))) return true;
+  const resumeWords = [
+    "continue",
+    "resume",
+    "yes",
+    "proceed",
+    "ok",
+    "okay",
+    "sure",
+    "yep",
+    "yup",
+    "fine",
+  ];
+  const resumePhrases = [
+    "go ahead",
+    "that works",
+    "okay continue",
+    "sounds good",
+  ];
+  if (resumeWords.some((w) => words.includes(w))) return true;
+  if (resumePhrases.some((p) => m.includes(p))) return true;
 
-  if (pendingAction === "selectAlternativeTheatre" && pendingOptions?.theatres) {
-    if (pendingOptions.theatres.some(t => m.includes(t.toLowerCase()))) return true;
+  if (
+    pendingAction === "selectAlternativeTheatre" &&
+    pendingOptions?.theatres
+  ) {
+    if (pendingOptions.theatres.some((t) => m.includes(t.toLowerCase())))
+      return true;
   }
   if (pendingAction === "selectAlternativeDate" && pendingOptions?.dates) {
-    if (pendingOptions.dates.some(d => m.includes(d.toLowerCase()))) return true;
+    if (pendingOptions.dates.some((d) => m.includes(d.toLowerCase())))
+      return true;
   }
   if (pendingAction === "selectAlternativeShow" && pendingOptions?.timings) {
-    if (pendingOptions.timings.some(t => m.includes(t.toLowerCase()))) return true;
+    if (pendingOptions.timings.some((t) => m.includes(t.toLowerCase())))
+      return true;
   }
   if (pendingAction === "selectSeats") {
     const seatRegex = /\b[a-zA-Z]\d+\b/;
@@ -314,8 +449,15 @@ const shouldResumePendingWorkflow = (msg, pendingAction, pendingOptions) => {
 
   const numberWords = ["first", "second", "third", "one", "two", "three"];
   const numberDigits = ["1", "2", "3"];
-  const hasOptions = pendingOptions?.theatres?.length > 0 || pendingOptions?.dates?.length > 0 || pendingOptions?.timings?.length > 0;
-  if (hasOptions && (numberWords.some(n => words.includes(n)) || numberDigits.some(n => words.includes(n)))) {
+  const hasOptions =
+    pendingOptions?.theatres?.length > 0 ||
+    pendingOptions?.dates?.length > 0 ||
+    pendingOptions?.timings?.length > 0;
+  if (
+    hasOptions &&
+    (numberWords.some((n) => words.includes(n)) ||
+      numberDigits.some((n) => words.includes(n)))
+  ) {
     return true;
   }
 
@@ -347,13 +489,31 @@ const logMutation = (field, oldVal, newVal) => {
 
 const detectStrongIntent = (msgLower) => {
   if (msgLower.includes("cancel")) return "cancellation";
-  if (msgLower.includes("reschedule") || msgLower.includes("change show")) return "reschedule";
+  if (msgLower.includes("reschedule") || msgLower.includes("change show"))
+    return "reschedule";
   if (msgLower.includes("refund")) return "refund";
-  if (msgLower.includes("history") || msgLower.includes("my ticket") || msgLower.includes("my booking")) return "booking_history";
-  if (msgLower.includes("recommend") || msgLower.includes("suggest")) return "recommendation";
+  if (
+    msgLower.includes("history") ||
+    msgLower.includes("my ticket") ||
+    msgLower.includes("my booking")
+  )
+    return "booking_history";
+  if (msgLower.includes("recommend") || msgLower.includes("suggest"))
+    return "recommendation";
   const cleaned = msgLower.replace(/[^a-z ]/g, "").trim();
-  if (["hi", "hello", "hey", "good morning", "good evening", "greetings"].includes(cleaned)) return "greeting";
-  if (msgLower.includes("help") || msgLower.includes("faq")) return "general_chat";
+  if (
+    [
+      "hi",
+      "hello",
+      "hey",
+      "good morning",
+      "good evening",
+      "greetings",
+    ].includes(cleaned)
+  )
+    return "greeting";
+  if (msgLower.includes("help") || msgLower.includes("faq"))
+    return "general_chat";
   return null;
 };
 
@@ -365,13 +525,17 @@ const intentDetectNode = async (state) => {
 
   const hasPendingAction = !!state.pendingAction;
   let isStale = false;
-  if (hasPendingAction && (!state.movie && !state.bookingId)) {
+  if (hasPendingAction && !state.movie && !state.bookingId) {
     isStale = true;
   }
 
   const strongIntent = detectStrongIntent(msgLower);
   const isGreeting = strongIntent === "greeting";
-  const willResume = shouldResumePendingWorkflow(lastMsg, state.pendingAction, state.pendingOptions);
+  const willResume = shouldResumePendingWorkflow(
+    lastMsg,
+    state.pendingAction,
+    state.pendingOptions,
+  );
 
   logTransition("intentDetectNode", state, {
     "User Message": lastMsg,
@@ -379,13 +543,16 @@ const intentDetectNode = async (state) => {
     "Is Greeting": isGreeting,
     "Has Pending": hasPendingAction,
     "Is Stale": isStale,
-    "Will Resume": willResume
+    "Will Resume": willResume,
   });
 
   // STEP 1: Clear stale pending actions
   let stateUpdates = {};
   if (isStale) {
-    console.log("  [CLEANUP] Clearing stale pendingAction:", state.pendingAction);
+    console.log(
+      "  [CLEANUP] Clearing stale pendingAction:",
+      state.pendingAction,
+    );
     stateUpdates.pendingAction = null;
     stateUpdates.pendingOptions = null;
   }
@@ -395,20 +562,32 @@ const intentDetectNode = async (state) => {
     return {
       ...stateUpdates,
       intent: "general_chat",
-      status: hasPendingAction && !isStale ? "PENDING_WORKFLOW_PAUSED" : "GREETING",
+      status:
+        hasPendingAction && !isStale ? "PENDING_WORKFLOW_PAUSED" : "GREETING",
       pendingAction: hasPendingAction && !isStale ? state.pendingAction : null,
-      pendingOptions: hasPendingAction && !isStale ? state.pendingOptions : null
+      pendingOptions:
+        hasPendingAction && !isStale ? state.pendingOptions : null,
     };
   }
 
   // STEP 3: Strong new intent overrides pending workflow
-  if (hasPendingAction && !isStale && strongIntent && strongIntent !== "greeting") {
-    console.log("  [OVERRIDE] Strong intent", strongIntent, "cancels pending:", state.pendingAction);
+  if (
+    hasPendingAction &&
+    !isStale &&
+    strongIntent &&
+    strongIntent !== "greeting"
+  ) {
+    console.log(
+      "  [OVERRIDE] Strong intent",
+      strongIntent,
+      "cancels pending:",
+      state.pendingAction,
+    );
     stateUpdates.pendingAction = null;
     stateUpdates.pendingOptions = null;
     return {
       ...stateUpdates,
-      intent: strongIntent
+      intent: strongIntent,
     };
   }
 
@@ -416,19 +595,25 @@ const intentDetectNode = async (state) => {
   if (hasPendingAction && !isStale && willResume) {
     const pendingUpdates = resolvePendingAction(state, lastMsg);
     if (pendingUpdates) {
-      for (const field of ["movie", "theatre", "showDate", "showTime", "bookingId"]) {
+      for (const field of [
+        "movie",
+        "theatre",
+        "showDate",
+        "showTime",
+        "bookingId",
+      ]) {
         if (pendingUpdates[field] !== undefined) {
           logMutation(field, state[field], pendingUpdates[field]);
         }
       }
       return {
         ...stateUpdates,
-        ...pendingUpdates
+        ...pendingUpdates,
       };
     }
     return {
       ...stateUpdates,
-      intent: "booking"
+      intent: "booking",
     };
   }
 
@@ -438,7 +623,10 @@ const intentDetectNode = async (state) => {
   let routerData = null;
   try {
     const routerResponseText = await callLLM(ROUTER_SYSTEM_PROMPT, messages);
-    const cleanedJson = routerResponseText.replace(/```json/g, "").replace(/```/g, "").trim();
+    const cleanedJson = routerResponseText
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
     routerData = JSON.parse(cleanedJson);
   } catch (err) {
     console.error("Intent parsing LLM error, executing local fallback:", err);
@@ -449,7 +637,10 @@ const intentDetectNode = async (state) => {
 
     if (msgLower.includes("cancel")) {
       intent = "cancellation";
-    } else if (msgLower.includes("reschedule") || msgLower.includes("change show")) {
+    } else if (
+      msgLower.includes("reschedule") ||
+      msgLower.includes("change show")
+    ) {
       intent = "reschedule";
     } else if (msgLower.includes("refund")) {
       intent = "refund";
@@ -466,7 +657,11 @@ const intentDetectNode = async (state) => {
       msgLower.includes("disclosure")
     ) {
       intent = "booking";
-    } else if (msgLower.includes("recommend") || msgLower.includes("suggest") || msgLower.includes("watch")) {
+    } else if (
+      msgLower.includes("recommend") ||
+      msgLower.includes("suggest") ||
+      msgLower.includes("watch")
+    ) {
       intent = "recommendation";
     }
 
@@ -524,8 +719,8 @@ const intentDetectNode = async (state) => {
         language: null,
         audience: null,
         mood: null,
-        similarMovie: null
-      }
+        similarMovie: null,
+      },
     };
 
     const similarRegex = /(?:similar to|like|movies like)\s+([a-zA-Z0-9\s:]+)/i;
@@ -544,22 +739,37 @@ const intentDetectNode = async (state) => {
 
   if (state.userId && routerData.entities?.movie) {
     try {
-      await storePreference(state.userId, `Prefers movie: ${routerData.entities.movie}`);
+      await storePreference(
+        state.userId,
+        `Prefers movie: ${routerData.entities.movie}`,
+      );
     } catch (e) {}
   }
   if (state.userId && routerData.entities?.theatre) {
     try {
-      await storePreference(state.userId, `Prefers cinema: ${routerData.entities.theatre}`);
+      await storePreference(
+        state.userId,
+        `Prefers cinema: ${routerData.entities.theatre}`,
+      );
     } catch (e) {}
   }
 
   const newIntent = routerData.intent || "general_chat";
-  const isNewBookingIntent = newIntent === "booking" && routerData.entities?.movie && routerData.entities.movie !== state.movie;
+  const isNewBookingIntent =
+    newIntent === "booking" &&
+    routerData.entities?.movie &&
+    routerData.entities.movie !== state.movie;
 
   const finalMovie = routerData.entities?.movie || state.movie;
-  const finalTheatre = isNewBookingIntent ? (routerData.entities?.theatre || null) : (routerData.entities?.theatre || state.theatre);
-  const finalDate = isNewBookingIntent ? resolvedDate : (resolvedDate || state.showDate);
-  const finalTime = isNewBookingIntent ? (routerData.entities?.showTime || null) : (routerData.entities?.showTime || state.showTime);
+  const finalTheatre = isNewBookingIntent
+    ? routerData.entities?.theatre || null
+    : routerData.entities?.theatre || state.theatre;
+  const finalDate = isNewBookingIntent
+    ? resolvedDate
+    : resolvedDate || state.showDate;
+  const finalTime = isNewBookingIntent
+    ? routerData.entities?.showTime || null
+    : routerData.entities?.showTime || state.showTime;
 
   logMutation("movie", state.movie, finalMovie);
   logMutation("theatre", state.theatre, finalTheatre);
@@ -567,7 +777,11 @@ const intentDetectNode = async (state) => {
   logMutation("showTime", state.showTime, finalTime);
 
   // If a non-booking intent was detected, clear pending workflow
-  if (newIntent !== "booking" && newIntent !== "general_chat" && hasPendingAction) {
+  if (
+    newIntent !== "booking" &&
+    newIntent !== "general_chat" &&
+    hasPendingAction
+  ) {
     stateUpdates.pendingAction = null;
     stateUpdates.pendingOptions = null;
   }
@@ -591,7 +805,15 @@ const intentDetectNode = async (state) => {
 
 // Booking Node
 const bookingNode = async (state) => {
-  const { movie, theatre, showDate, showTime, selectedSeats, seatCount, userId } = state;
+  const {
+    movie,
+    theatre,
+    showDate,
+    showTime,
+    selectedSeats,
+    seatCount,
+    userId,
+  } = state;
   logTransition("bookingNode", state);
 
   // If user cancelled, release seat locks and reset
@@ -604,11 +826,13 @@ const bookingNode = async (state) => {
     return {
       status: "BOOKING_CANCELLED",
       nextAction: "SHOW_ERROR",
-      data: { message: "Booking was cancelled. What else can I help you with?" },
+      data: {
+        message: "Booking was cancelled. What else can I help you with?",
+      },
       pendingAction: null,
       pendingOptions: null,
       selectedSeats: [],
-      actionRequired: true
+      actionRequired: true,
     };
   }
 
@@ -619,20 +843,25 @@ const bookingNode = async (state) => {
       data: {},
       pendingAction: null,
       pendingOptions: null,
-      actionRequired: true
+      actionRequired: true,
     };
   }
 
   const movies = await searchMovieTool(movie);
   if (movies.length === 0) {
-    const activeMovies = await Movie.find({ isActive: true }).sort({ popularity: -1 }).limit(3);
+    const activeMovies = await Movie.find({ isActive: true })
+      .sort({ popularity: -1 })
+      .limit(3);
     return {
       status: "MOVIE_NOT_FOUND",
       nextAction: "SHOW_ALTERNATIVES",
-      data: { requestedMovie: movie, suggestions: activeMovies.map(m => m.title) },
+      data: {
+        requestedMovie: movie,
+        suggestions: activeMovies.map((m) => m.title),
+      },
       pendingAction: null,
       pendingOptions: null,
-      actionRequired: true
+      actionRequired: true,
     };
   }
 
@@ -645,21 +874,31 @@ const bookingNode = async (state) => {
       data: { selectedMovie: selectedMovie.title },
       pendingAction: null,
       pendingOptions: null,
-      actionRequired: true
+      actionRequired: true,
     };
   }
 
   const theatres = await searchNearbyTheatresTool(theatre);
   if (theatres.length === 0) {
     const allActiveShows = await findShowsTool(selectedMovie._id, null);
-    const uniqueTheatres = [...new Set(allActiveShows.map(s => s.screen?.theatre?.name).filter(Boolean))];
+    const uniqueTheatres = [
+      ...new Set(
+        allActiveShows.map((s) => s.screen?.theatre?.name).filter(Boolean),
+      ),
+    ];
     return {
       status: "THEATRE_NOT_FOUND",
       nextAction: "SHOW_ALTERNATIVES",
-      data: { selectedMovie: selectedMovie.title, searchedTheatre: theatre, alternativeTheatres: uniqueTheatres },
+      data: {
+        selectedMovie: selectedMovie.title,
+        searchedTheatre: theatre,
+        alternativeTheatres: uniqueTheatres,
+      },
       actionRequired: true,
-      pendingAction: uniqueTheatres.length > 0 ? "selectAlternativeTheatre" : null,
-      pendingOptions: uniqueTheatres.length > 0 ? { theatres: uniqueTheatres } : null
+      pendingAction:
+        uniqueTheatres.length > 0 ? "selectAlternativeTheatre" : null,
+      pendingOptions:
+        uniqueTheatres.length > 0 ? { theatres: uniqueTheatres } : null,
     };
   }
 
@@ -669,68 +908,106 @@ const bookingNode = async (state) => {
   console.log("  [bookingNode] Resolved date:", showDate, "→", dateStr);
 
   const shows = await findShowsTool(selectedMovie._id, null);
-  const matchingShows = shows.filter(s => s.screen?.theatre?._id.toString() === selectedTheatre._id.toString());
+  const matchingShows = shows.filter(
+    (s) => s.screen?.theatre?._id.toString() === selectedTheatre._id.toString(),
+  );
 
   if (matchingShows.length === 0) {
-    const alternativeTheatres = [...new Set(shows.map(s => s.screen?.theatre?.name).filter(Boolean))];
+    const alternativeTheatres = [
+      ...new Set(shows.map((s) => s.screen?.theatre?.name).filter(Boolean)),
+    ];
     return {
       status: "MOVIE_NOT_PLAYING_AT_THEATRE",
       nextAction: "SHOW_ALTERNATIVES",
-      data: { selectedMovie: selectedMovie.title, selectedTheatre: selectedTheatre.name, alternativeTheatres: alternativeTheatres },
+      data: {
+        selectedMovie: selectedMovie.title,
+        selectedTheatre: selectedTheatre.name,
+        alternativeTheatres: alternativeTheatres,
+      },
       actionRequired: true,
-      pendingAction: alternativeTheatres.length > 0 ? "selectAlternativeTheatre" : null,
-      pendingOptions: alternativeTheatres.length > 0 ? { theatres: alternativeTheatres } : null
+      pendingAction:
+        alternativeTheatres.length > 0 ? "selectAlternativeTheatre" : null,
+      pendingOptions:
+        alternativeTheatres.length > 0
+          ? { theatres: alternativeTheatres }
+          : null,
     };
   }
 
-  const targetShowsOnDate = matchingShows.filter(s => {
+  const targetShowsOnDate = matchingShows.filter((s) => {
     const showDateStr = formatLocalDate(new Date(s.date || s.createdAt));
     return showDateStr === dateStr;
   });
 
   if (targetShowsOnDate.length === 0) {
-    const availableDates = [...new Set(matchingShows.map(s => {
-      const showD = new Date(s.date || s.createdAt);
-      return showD.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    }))];
+    const availableDates = [
+      ...new Set(
+        matchingShows.map((s) => {
+          const showD = new Date(s.date || s.createdAt);
+          return showD.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          });
+        }),
+      ),
+    ];
     return {
       status: "SHOWS_ON_DATE_NOT_FOUND",
       nextAction: "SHOW_ALTERNATIVES",
-      data: { selectedMovie: selectedMovie.title, selectedTheatre: selectedTheatre.name, targetDate: dateStr, availableDates: availableDates },
+      data: {
+        selectedMovie: selectedMovie.title,
+        selectedTheatre: selectedTheatre.name,
+        targetDate: dateStr,
+        availableDates: availableDates,
+      },
       actionRequired: true,
       pendingAction: availableDates.length > 0 ? "selectAlternativeDate" : null,
-      pendingOptions: availableDates.length > 0 ? { dates: availableDates } : null
+      pendingOptions:
+        availableDates.length > 0 ? { dates: availableDates } : null,
     };
   }
 
   // Showtime selection stage
   if (!showTime && targetShowsOnDate.length > 1) {
-    const availableTimings = targetShowsOnDate.map(s => s.startTime);
+    const availableTimings = targetShowsOnDate.map((s) => s.startTime);
     return {
       status: "SHOWTIME_REQUIRED",
       nextAction: "ASK_SHOWTIME",
-      data: { selectedMovie: selectedMovie.title, selectedTheatre: selectedTheatre.name, date: dateStr, availableTimings },
+      data: {
+        selectedMovie: selectedMovie.title,
+        selectedTheatre: selectedTheatre.name,
+        date: dateStr,
+        availableTimings,
+      },
       pendingAction: "selectAlternativeShow",
       pendingOptions: { timings: availableTimings },
-      actionRequired: true
+      actionRequired: true,
     };
   }
 
   // Select target show
   let targetShow = targetShowsOnDate[0];
   if (showTime) {
-    const matchedTime = targetShowsOnDate.find(s => s.startTime.includes(showTime) || showTime.includes(s.startTime));
+    const matchedTime = targetShowsOnDate.find(
+      (s) => s.startTime.includes(showTime) || showTime.includes(s.startTime),
+    );
     if (matchedTime) {
       targetShow = matchedTime;
     } else {
-      const availableTimings = targetShowsOnDate.map(s => s.startTime);
+      const availableTimings = targetShowsOnDate.map((s) => s.startTime);
       return {
         status: "TIME_MISMATCH",
         nextAction: "SHOW_ALTERNATIVES",
-        data: { selectedMovie: selectedMovie.title, selectedTheatre: selectedTheatre.name, date: dateStr, searchedTime: showTime, availableTimings: availableTimings },
+        data: {
+          selectedMovie: selectedMovie.title,
+          selectedTheatre: selectedTheatre.name,
+          date: dateStr,
+          searchedTime: showTime,
+          availableTimings: availableTimings,
+        },
         actionRequired: true,
         pendingAction: "selectAlternativeShow",
-        pendingOptions: { timings: availableTimings }
+        pendingOptions: { timings: availableTimings },
       };
     }
   }
@@ -738,26 +1015,30 @@ const bookingNode = async (state) => {
   // Seat Display / Selection Stage
   if (!selectedSeats || selectedSeats.length === 0) {
     const layout = await getSeatLayoutTool(targetShow._id);
-    const available = layout.filter(s => s.available).map(s => s.name);
+    const available = layout.filter((s) => s.available).map((s) => s.name);
     return {
       showId: targetShow._id.toString(),
       showTime: targetShow.startTime,
       status: "PENDING_SELECTION",
       nextAction: "ASK_SEATS",
-      data: { selectedMovie: selectedMovie.title, selectedTheatre: selectedTheatre.name, date: dateStr, showTime: targetShow.startTime, availableSeats: available },
+      data: {
+        selectedMovie: selectedMovie.title,
+        selectedTheatre: selectedTheatre.name,
+        date: dateStr,
+        showTime: targetShow.startTime,
+        availableSeats: available,
+      },
       pendingAction: "selectSeats",
       pendingOptions: { seats: available },
-      actionRequired: true
+      actionRequired: true,
     };
   }
 
   // Create payment order stage (user confirmed booking summary)
   if (state.status === "CREATE_PAYMENT_ORDER") {
-    const ticketPrice = targetShow.price;
-    const totalTicketPrice = ticketPrice * selectedSeats.length;
-    const convenienceFee = 30 * selectedSeats.length;
-    const gst = Math.round(0.18 * (totalTicketPrice + convenienceFee));
-    const grandTotal = totalTicketPrice + convenienceFee + gst;
+    const { calculateBookingPricing } = require("../services/pricingService");
+    const pricing = await calculateBookingPricing(selectedSeats.length, targetShow.price);
+    const { subtotal: totalTicketPrice, convenienceFee, gst, totalAmount: grandTotal } = pricing;
 
     const bookingId = `CV-${Date.now()}`;
     const booking = await Booking.create({
@@ -800,13 +1081,13 @@ const bookingNode = async (state) => {
         orderId: order.id,
         amount: order.amount,
         currency: order.currency,
-        bookingId: booking._id.toString()
+        bookingId: booking._id.toString(),
       },
       actionRequired: {
         type: "navigate",
         payload: "/checkout",
-        bookingId: booking._id.toString()
-      }
+        bookingId: booking._id.toString(),
+      },
     };
   }
 
@@ -815,7 +1096,7 @@ const bookingNode = async (state) => {
     const layout = await getSeatLayoutTool(targetShow._id);
     const unavailableSeats = [];
     for (const seat of selectedSeats) {
-      const seatObj = layout.find(s => s.name === seat);
+      const seatObj = layout.find((s) => s.name === seat);
       if (!seatObj || !seatObj.available) {
         unavailableSeats.push(seat);
       }
@@ -826,7 +1107,9 @@ const bookingNode = async (state) => {
       for (const seat of unavailableSeats) {
         suggestions.push(...findNearbySeats(layout, seat));
       }
-      const uniqueSuggestions = [...new Set(suggestions)].filter(s => !selectedSeats.includes(s));
+      const uniqueSuggestions = [...new Set(suggestions)].filter(
+        (s) => !selectedSeats.includes(s),
+      );
       return {
         showId: targetShow._id.toString(),
         status: "SEATS_UNAVAILABLE",
@@ -837,12 +1120,12 @@ const bookingNode = async (state) => {
           date: dateStr,
           showTime: targetShow.startTime,
           unavailableSeats,
-          suggestions: uniqueSuggestions
+          suggestions: uniqueSuggestions,
         },
         pendingAction: "selectSeats",
         pendingOptions: { seats: uniqueSuggestions },
         actionRequired: true,
-        selectedSeats: [] // Reset selected seats so they can select again
+        selectedSeats: [], // Reset selected seats so they can select again
       };
     }
 
@@ -850,7 +1133,11 @@ const bookingNode = async (state) => {
     const lockedList = [];
     let lockFailed = false;
     for (const seat of selectedSeats) {
-      const lockResult = await lockSeat(targetShow._id.toString(), seat, userId);
+      const lockResult = await lockSeat(
+        targetShow._id.toString(),
+        seat,
+        userId,
+      );
       if (!lockResult.success) {
         lockFailed = true;
         break;
@@ -867,7 +1154,9 @@ const bookingNode = async (state) => {
       for (const seat of selectedSeats) {
         suggestions.push(...findNearbySeats(layout2, seat));
       }
-      const uniqueSuggestions = [...new Set(suggestions)].filter(s => !selectedSeats.includes(s));
+      const uniqueSuggestions = [...new Set(suggestions)].filter(
+        (s) => !selectedSeats.includes(s),
+      );
       return {
         showId: targetShow._id.toString(),
         status: "SEATS_UNAVAILABLE",
@@ -878,28 +1167,30 @@ const bookingNode = async (state) => {
           date: dateStr,
           showTime: targetShow.startTime,
           unavailableSeats: selectedSeats,
-          suggestions: uniqueSuggestions
+          suggestions: uniqueSuggestions,
         },
         pendingAction: "selectSeats",
         pendingOptions: { seats: uniqueSuggestions },
         actionRequired: true,
-        selectedSeats: []
+        selectedSeats: [],
       };
     }
 
     // Socket notify locked
     try {
       const io = getIO();
-      io.to(targetShow._id.toString()).emit("seat-locked", { showId: targetShow._id, seats: selectedSeats, lockedBy: userId });
+      io.to(targetShow._id.toString()).emit("seat-locked", {
+        showId: targetShow._id,
+        seats: selectedSeats,
+        lockedBy: userId,
+      });
     } catch (e) {}
   }
 
   // Display summary (SEATS_LOCKED)
-  const ticketPrice = targetShow.price;
-  const totalTicketPrice = ticketPrice * selectedSeats.length;
-  const convenienceFee = 30 * selectedSeats.length;
-  const gst = Math.round(0.18 * (totalTicketPrice + convenienceFee));
-  const grandTotal = totalTicketPrice + convenienceFee + gst;
+  const { calculateBookingPricing } = require("../services/pricingService");
+  const pricing = await calculateBookingPricing(selectedSeats.length, targetShow.price);
+  const { subtotal: totalTicketPrice, convenienceFee, gst, totalAmount: grandTotal } = pricing;
 
   return {
     showId: targetShow._id.toString(),
@@ -915,11 +1206,11 @@ const bookingNode = async (state) => {
       totalTicketPrice,
       convenienceFee,
       gst,
-      grandTotal
+      grandTotal,
     },
     pendingAction: "confirmBooking",
     pendingOptions: { seats: selectedSeats },
-    actionRequired: true
+    actionRequired: true,
   };
 };
 
@@ -932,7 +1223,7 @@ const cancellationNode = async (state) => {
       status: "CANCEL_BOOKING_ID_REQUIRED",
       nextAction: "ASK_BOOKING_ID",
       data: {},
-      actionRequired: true
+      actionRequired: true,
     };
   }
 
@@ -941,15 +1232,19 @@ const cancellationNode = async (state) => {
     return {
       status: "CANCEL_SUCCESS",
       nextAction: "COMPLETE_CANCEL",
-      data: { bookingId: bookingId, refundAmount: result.refundAmount, message: result.message },
-      actionRequired: true
+      data: {
+        bookingId: bookingId,
+        refundAmount: result.refundAmount,
+        message: result.message,
+      },
+      actionRequired: true,
     };
   } else {
     return {
       status: "CANCEL_FAILED",
       nextAction: "SHOW_ERROR",
       data: { bookingId: bookingId, errorMessage: result.message },
-      actionRequired: true
+      actionRequired: true,
     };
   }
 };
@@ -963,27 +1258,33 @@ const refundNode = async (state) => {
       status: "REFUND_BOOKING_ID_REQUIRED",
       nextAction: "ASK_BOOKING_ID",
       data: {},
-      actionRequired: true
+      actionRequired: true,
     };
   }
 
   const bookings = await getBookingHistoryTool(userId);
-  const target = bookings.find(b => b.bookingId === bookingId);
+  const target = bookings.find((b) => b.bookingId === bookingId);
 
   if (!target) {
     return {
       status: "REFUND_FAILED_NOT_FOUND",
       nextAction: "SHOW_ERROR",
       data: { bookingId: bookingId },
-      actionRequired: true
+      actionRequired: true,
     };
   }
 
   return {
     status: "REFUND_STATUS",
     nextAction: "SHOW_REFUND_INFO",
-    data: { bookingId: bookingId, bookingStatus: target.bookingStatus, paymentStatus: target.paymentStatus, refundAmount: target.refundAmount || target.totalAmount, refundId: target.refundId },
-    actionRequired: true
+    data: {
+      bookingId: bookingId,
+      bookingStatus: target.bookingStatus,
+      paymentStatus: target.paymentStatus,
+      refundAmount: target.refundAmount || target.totalAmount,
+      refundId: target.refundId,
+    },
+    actionRequired: true,
   };
 };
 
@@ -996,18 +1297,18 @@ const rescheduleNode = async (state) => {
       status: "RESCHEDULE_BOOKING_ID_REQUIRED",
       nextAction: "ASK_BOOKING_ID",
       data: {},
-      actionRequired: true
+      actionRequired: true,
     };
   }
 
   const bookings = await getBookingHistoryTool(userId);
-  const target = bookings.find(b => b.bookingId === bookingId);
+  const target = bookings.find((b) => b.bookingId === bookingId);
   if (!target) {
     return {
       status: "RESCHEDULE_FAILED_NOT_FOUND",
       nextAction: "SHOW_ERROR",
       data: { bookingId: bookingId },
-      actionRequired: true
+      actionRequired: true,
     };
   }
 
@@ -1016,37 +1317,47 @@ const rescheduleNode = async (state) => {
       status: "RESCHEDULE_DATETIME_REQUIRED",
       nextAction: "ASK_DATETIME",
       data: { bookingId: bookingId },
-      actionRequired: true
+      actionRequired: true,
     };
   }
 
   const dateStr = showDate || new Date().toISOString().split("T")[0];
   const candidateShows = await findShowsTool(target.show.movie._id, dateStr);
-  const matchingShow = candidateShows.find(s => s.startTime.includes(showTime) || showTime?.includes(s.startTime));
+  const matchingShow = candidateShows.find(
+    (s) => s.startTime.includes(showTime) || showTime?.includes(s.startTime),
+  );
 
   if (!matchingShow) {
     return {
       status: "RESCHEDULE_SHOWTIME_NOT_FOUND",
       nextAction: "SHOW_ERROR",
       data: { bookingId: bookingId, searchedTime: showTime, date: dateStr },
-      actionRequired: true
+      actionRequired: true,
     };
   }
 
-  const result = await rescheduleBookingTool(userId, bookingId, matchingShow._id);
+  const result = await rescheduleBookingTool(
+    userId,
+    bookingId,
+    matchingShow._id,
+  );
   if (result.success) {
     return {
       status: "RESCHEDULE_SUCCESS",
       nextAction: "COMPLETE_RESCHEDULE",
-      data: { bookingId: bookingId, newTheatre: matchingShow.screen?.theatre?.name, startTime: matchingShow.startTime },
-      actionRequired: true
+      data: {
+        bookingId: bookingId,
+        newTheatre: matchingShow.screen?.theatre?.name,
+        startTime: matchingShow.startTime,
+      },
+      actionRequired: true,
     };
   } else {
     return {
       status: "RESCHEDULE_FAILED",
       nextAction: "SHOW_ERROR",
       data: { bookingId: bookingId, errorMessage: result.message },
-      actionRequired: true
+      actionRequired: true,
     };
   }
 };
@@ -1058,13 +1369,17 @@ const recommendationNode = async (state) => {
 
   let matchedMovie = null;
   if (similarMovie) {
-    matchedMovie = await Movie.findOne({ title: { $regex: new RegExp(similarMovie, "i") } });
+    matchedMovie = await Movie.findOne({
+      title: { $regex: new RegExp(similarMovie, "i") },
+    });
   }
 
   let maxRuntime = null;
   let minRuntime = null;
 
-  const underHoursMatch = lastMsg.match(/(?:under|less\s+than)\s+(\d+)\s*hours?/i);
+  const underHoursMatch = lastMsg.match(
+    /(?:under|less\s+than)\s+(\d+)\s*hours?/i,
+  );
   if (underHoursMatch) {
     maxRuntime = parseInt(underHoursMatch[1]) * 60;
   }
@@ -1074,12 +1389,16 @@ const recommendationNode = async (state) => {
     minRuntime = parseInt(overHoursMatch[1]) * 60;
   }
 
-  const underMinsMatch = lastMsg.match(/(?:under|less\s+than)\s+(\d+)\s*(?:minutes|mins?)/i);
+  const underMinsMatch = lastMsg.match(
+    /(?:under|less\s+than)\s+(\d+)\s*(?:minutes|mins?)/i,
+  );
   if (underMinsMatch) {
     maxRuntime = parseInt(underMinsMatch[1]);
   }
 
-  const overMinsMatch = lastMsg.match(/(?:above|over)\s+(\d+)\s*(?:minutes|mins?)/i);
+  const overMinsMatch = lastMsg.match(
+    /(?:above|over)\s+(\d+)\s*(?:minutes|mins?)/i,
+  );
   if (overMinsMatch) {
     minRuntime = parseInt(overMinsMatch[1]);
   }
@@ -1096,18 +1415,21 @@ const recommendationNode = async (state) => {
     filter._id = { $ne: matchedMovie._id };
     filter.$or = [
       { genres: { $in: matchedMovie.genres } },
-      { language: matchedMovie.language }
+      { language: matchedMovie.language },
     ];
   } else {
     const genresToFilter = [];
     if (genre) {
       genresToFilter.push(genre);
     }
-    if (audience && (audience.toLowerCase() === "family" || audience.toLowerCase() === "kids")) {
+    if (
+      audience &&
+      (audience.toLowerCase() === "family" || audience.toLowerCase() === "kids")
+    ) {
       genresToFilter.push("family", "animation", "adventure");
     }
     if (genresToFilter.length > 0) {
-      filter.genres = { $in: genresToFilter.map(g => new RegExp(g, "i")) };
+      filter.genres = { $in: genresToFilter.map((g) => new RegExp(g, "i")) };
     }
     if (language) {
       filter.language = new RegExp(language, "i");
@@ -1121,26 +1443,30 @@ const recommendationNode = async (state) => {
     filter.runtime = { ...filter.runtime, $gte: minRuntime };
   }
 
-  let candidateMovies = await Movie.find(filter).sort({ popularity: -1 }).limit(20);
+  let candidateMovies = await Movie.find(filter)
+    .sort({ popularity: -1 })
+    .limit(20);
   if (candidateMovies.length === 0) {
-    candidateMovies = await Movie.find({ isActive: true }).sort({ popularity: -1 }).limit(20);
+    candidateMovies = await Movie.find({ isActive: true })
+      .sort({ popularity: -1 })
+      .limit(20);
   }
 
   return {
     status: "RECOMMENDATIONS_FOUND",
     nextAction: "SHOW_RECOMMENDATIONS",
     data: {
-      candidates: candidateMovies.slice(0, 5).map(m => ({
+      candidates: candidateMovies.slice(0, 5).map((m) => ({
         title: m.title,
         genres: m.genres,
         language: m.language,
         runtime: m.runtime,
         rating: m.rating,
-        overview: m.overview
+        overview: m.overview,
       })),
-      prefs
+      prefs,
     },
-    actionRequired: true
+    actionRequired: true,
   };
 };
 
@@ -1154,7 +1480,7 @@ const historyNode = async (state) => {
       status: "HISTORY_EMPTY",
       nextAction: "SHOW_ERROR",
       data: {},
-      actionRequired: true
+      actionRequired: true,
     };
   }
 
@@ -1162,15 +1488,15 @@ const historyNode = async (state) => {
     status: "HISTORY_LIST",
     nextAction: "SHOW_HISTORY",
     data: {
-      bookings: bookings.slice(0, 5).map(b => ({
+      bookings: bookings.slice(0, 5).map((b) => ({
         movie: b.show?.movie?.title,
         theatre: b.show?.screen?.theatre?.name,
         seats: b.seats,
         status: b.bookingStatus,
-        date: new Date(b.createdAt).toLocaleDateString()
-      }))
+        date: new Date(b.createdAt).toLocaleDateString(),
+      })),
     },
-    actionRequired: true
+    actionRequired: true,
   };
 };
 
@@ -1180,15 +1506,20 @@ const generalChatNode = async (state) => {
     return {
       status: "PENDING_WORKFLOW_PAUSED",
       nextAction: "ASK_RESUME",
-      data: { message: "Welcome back! You have an unfinished booking.\nWould you like to continue it or start something new?" },
-      actionRequired: false
+      data: {
+        message:
+          "Welcome back! You have an unfinished booking.\nWould you like to continue it or start something new?",
+      },
+      actionRequired: false,
     };
   } else if (state.status === "GREETING") {
     return {
       status: "GREETING",
       nextAction: "RESPOND_GREETING",
-      data: { message: "Hello! 👋 Welcome to CineVerse.\nHow can I help you today?" },
-      actionRequired: false
+      data: {
+        message: "Hello! 👋 Welcome to CineVerse.\nHow can I help you today?",
+      },
+      actionRequired: false,
     };
   }
 
@@ -1196,7 +1527,7 @@ const generalChatNode = async (state) => {
     status: "GENERAL_CHAT_REPLY",
     nextAction: "RESPOND_GENERAL",
     data: {},
-    actionRequired: true
+    actionRequired: true,
   };
 };
 
@@ -1209,7 +1540,7 @@ const responseFormatterNode = async (state) => {
     const sanitize = (obj) => {
       if (Array.isArray(obj)) {
         obj.forEach(sanitize);
-      } else if (obj !== null && typeof obj === 'object') {
+      } else if (obj !== null && typeof obj === "object") {
         delete obj._id;
         delete obj.__v;
         delete obj.createdAt;
@@ -1226,7 +1557,15 @@ const responseFormatterNode = async (state) => {
 };
 
 const responderNode = async (state) => {
-  const { intent, status, nextAction, sanitizedData, pendingAction, pendingOptions, actionRequired } = state;
+  const {
+    intent,
+    status,
+    nextAction,
+    sanitizedData,
+    pendingAction,
+    pendingOptions,
+    actionRequired,
+  } = state;
 
   console.log("--- RESPONDER NODE INPUT ---");
   console.log({
@@ -1237,23 +1576,29 @@ const responderNode = async (state) => {
     pendingOptions,
     data: state.data,
     sanitizedData,
-    actionRequired
+    actionRequired,
   });
   console.log("----------------------------");
 
   if (actionRequired === false) {
     let bypassMessage = sanitizedData?.message || "Your action is complete.";
     if (status === "BOOKING_SUCCESS") {
-      bypassMessage = "Your booking was successful! Redirecting you to checkout...";
+      bypassMessage =
+        "Your booking was successful! Redirecting you to checkout...";
     }
     return {
-      messages: [{ role: "assistant", content: bypassMessage }]
+      messages: [{ role: "assistant", content: bypassMessage }],
     };
   }
 
   // Sanity check invalid states
   if (!status || !nextAction || typeof actionRequired === "undefined") {
-    console.error("INVALID STATE RECEIVED IN RESPONDER:", { status, nextAction, actionRequired, intent });
+    console.error("INVALID STATE RECEIVED IN RESPONDER:", {
+      status,
+      nextAction,
+      actionRequired,
+      intent,
+    });
   }
 
   const systemPrompt = `
@@ -1285,16 +1630,24 @@ Convert this context into a natural conversational response matching the guideli
 `;
 
   try {
-    const lastUserMessage = state.messages.filter(m => m.role === "user").pop() || { role: "user", content: "" };
+    const lastUserMessage = state.messages
+      .filter((m) => m.role === "user")
+      .pop() || { role: "user", content: "" };
     const reply = await callLLM(systemPrompt, [lastUserMessage]);
     return {
-      messages: [{ role: "assistant", content: reply }]
+      messages: [{ role: "assistant", content: reply }],
     };
   } catch (err) {
     console.error("Responder node LLM execution error:", err);
     console.error(err.stack);
     return {
-      messages: [{ role: "assistant", content: "I'm having trouble phrasing my response right now, but I can help you with your booking. What would you like to check next?" }]
+      messages: [
+        {
+          role: "assistant",
+          content:
+            "I'm having trouble phrasing my response right now, but I can help you with your booking. What would you like to check next?",
+        },
+      ],
     };
   }
 };

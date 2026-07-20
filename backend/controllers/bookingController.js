@@ -68,11 +68,10 @@ const createBooking = async (req, res) => {
       lockedSeats.push(seat);
     }
 
-    // Total amount, convenience fee, and GST calculations (matching the chatbot flow)
-    const subtotal = seats.length * show.price;
-    const convenienceFee = 30 * seats.length;
-    const gst = Math.round(0.18 * (subtotal + convenienceFee));
-    const totalAmount = subtotal + convenienceFee + gst;
+    // Total amount, convenience fee, and GST calculations dynamically calculated using the Pricing Service
+    const { calculateBookingPricing } = require("../services/pricingService");
+    const pricing = await calculateBookingPricing(seats.length, show.price);
+    const { subtotal, convenienceFee, gst, totalAmount } = pricing;
 
     // Unique booking id generate karo
     const bookingId = `CV-${Date.now()}`;
@@ -220,7 +219,6 @@ const getBookingById = async (req, res) => {
   }
 };
 
-
 // Cancel booking
 const cancelBooking = async (req, res) => {
   try {
@@ -259,7 +257,6 @@ const cancelBooking = async (req, res) => {
     // CASE 1 : Payment Pending
 
     if (booking.paymentStatus === "pending") {
-
       // Booking cancel karo
       booking.bookingStatus = "cancelled";
       booking.paymentStatus = "failed";
@@ -270,28 +267,22 @@ const cancelBooking = async (req, res) => {
       if (booking.orderId) {
         await Payment.findOneAndUpdate(
           { razorpayOrderId: booking.orderId },
-          { status: "failed" }
+          { status: "failed" },
         );
       }
 
       // Redis unlock
       for (const seat of booking.seats) {
-        await unlockSeat(
-          booking.show.toString(),
-          seat
-        );
+        await unlockSeat(booking.show.toString(), seat);
       }
 
       // Frontend ko realtime update bhejo
       const io = getIO();
 
-      io.to(booking.show.toString()).emit(
-        "seat-unlocked",
-        {
-          showId: booking.show,
-          seats: booking.seats,
-        }
-      );
+      io.to(booking.show.toString()).emit("seat-unlocked", {
+        showId: booking.show,
+        seats: booking.seats,
+      });
 
       return res.status(200).json({
         success: true,
@@ -302,11 +293,8 @@ const cancelBooking = async (req, res) => {
 
     // CASE 2 : Payment Paid
 
-
     // Show find karo
-    const show = await Show.findById(
-      booking.show
-    );
+    const show = await Show.findById(booking.show);
 
     if (!show) {
       return res.status(404).json({
@@ -316,47 +304,34 @@ const cancelBooking = async (req, res) => {
     }
 
     // Refund amount calculate karo
-    const refund = await calculateRefundAmount(
-      booking,
-      show
-    );
+    const refund = await calculateRefundAmount(booking, show);
 
     // Refund policy check
     if (!refund.eligible) {
       return res.status(400).json({
         success: false,
-        message:
-          "Booking cannot be cancelled within 2 hours of show time",
+        message: "Booking cannot be cancelled within 2 hours of show time",
       });
     }
 
     // Razorpay refund create karo
-    const razorpayRefund =
-      await razorpay.payments.refund(
-        booking.paymentId,
-        {
-          // Razorpay paisa me amount leta hai
-          amount:
-            refund.refundAmount * 100,
-        }
-      );
+    const razorpayRefund = await razorpay.payments.refund(booking.paymentId, {
+      // Razorpay paisa me amount leta hai
+      amount: refund.refundAmount * 100,
+    });
 
     // Booking update karo
     booking.bookingStatus = "cancelled";
 
     booking.paymentStatus = "refunded";
 
-    booking.refundId =
-      razorpayRefund.id;
+    booking.refundId = razorpayRefund.id;
 
-    booking.refundAmount =
-      refund.refundAmount;
+    booking.refundAmount = refund.refundAmount;
 
-    booking.refundStatus =
-      "processed";
+    booking.refundStatus = "processed";
 
-    booking.cancelledAt =
-      new Date();
+    booking.cancelledAt = new Date();
 
     await booking.save();
 
@@ -374,7 +349,7 @@ const cancelBooking = async (req, res) => {
               createdAt: new Date(),
             },
           },
-        }
+        },
       );
     }
 
@@ -399,47 +374,33 @@ const cancelBooking = async (req, res) => {
 
     // Redis unlock
     for (const seat of booking.seats) {
-      await unlockSeat(
-        booking.show.toString(),
-        seat
-      );
+      await unlockSeat(booking.show.toString(), seat);
     }
 
     // Frontend ko realtime update bhejo
     const io = getIO();
 
-    io.to(booking.show.toString()).emit(
-      "seat-unlocked",
-      {
-        showId: booking.show,
-        seats: booking.seats,
-      }
-    );
+    io.to(booking.show.toString()).emit("seat-unlocked", {
+      showId: booking.show,
+      seats: booking.seats,
+    });
 
     res.status(200).json({
       success: true,
-      message:
-        "Booking cancelled successfully",
+      message: "Booking cancelled successfully",
 
-      refundPercentage:
-        refund.refundPercentage,
+      refundPercentage: refund.refundPercentage,
 
-      refundAmount:
-        refund.refundAmount,
+      refundAmount: refund.refundAmount,
 
       booking,
     });
-
   } catch (error) {
-    console.log(
-      "Error cancelling booking:",
-      error
-    );
+    console.log("Error cancelling booking:", error);
 
     res.status(500).json({
       success: false,
-      message:
-        "Internal server error",
+      message: "Internal server error",
       error: error.message,
     });
   }
@@ -512,7 +473,7 @@ const getAllBookingsAdmin = async (req, res) => {
       .populate("user", "name email")
       .populate({
         path: "show",
-        populate: { path: "movie", select: "title" }
+        populate: { path: "movie", select: "title" },
       });
     res.status(200).json({
       success: true,
@@ -530,12 +491,17 @@ const getBookingPdf = async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
     if (!booking) {
-      return res.status(404).json({ success: false, message: "Booking not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Booking not found" });
     }
-    const filePath = path.join(__dirname, `../tickets/${booking.bookingId}.pdf`);
-    
+    const filePath = path.join(
+      __dirname,
+      `../tickets/${booking.bookingId}.pdf`,
+    );
+
     const dir = path.dirname(filePath);
-    if (!fs.existsSync(dir)){
+    if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
 
@@ -546,14 +512,14 @@ const getBookingPdf = async (req, res) => {
           path: "show",
           populate: {
             path: "screen",
-            populate: { path: "theatre" }
-          }
+            populate: { path: "theatre" },
+          },
         })
         .populate({
           path: "show",
-          populate: { path: "movie" }
+          populate: { path: "movie" },
         });
-      
+
       const { generateTicketPdf } = require("../services/pdfService");
       await generateTicketPdf(populated);
     }
@@ -568,23 +534,30 @@ const getOwnerBookings = async (req, res) => {
     const theatreId = req.params.theatreId;
     const theatre = await Theatre.findById(theatreId);
     if (!theatre) {
-      return res.status(404).json({ success: false, message: "Theatre not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Theatre not found" });
     }
     if (theatre.owner.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, message: "Unauthorized to access bookings of this theatre" });
+      return res
+        .status(403)
+        .json({
+          success: false,
+          message: "Unauthorized to access bookings of this theatre",
+        });
     }
     const screens = await Screen.find({ theatre: theatreId });
-    const screenIds = screens.map(s => s._id);
+    const screenIds = screens.map((s) => s._id);
     const shows = await Show.find({ screen: { $in: screenIds } });
-    const showIds = shows.map(s => s._id);
-    
+    const showIds = shows.map((s) => s._id);
+
     const bookings = await Booking.find({ show: { $in: showIds } })
       .populate("user", "name email")
       .populate({
         path: "show",
-        populate: { path: "movie", select: "title" }
+        populate: { path: "movie", select: "title" },
       });
-      
+
     res.status(200).json({ success: true, bookings });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

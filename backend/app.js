@@ -42,18 +42,18 @@ app.get("/", (req, res) => {
   });
 });
 
-app.use("/api/auth",  authRoutes);
-app.use("/api/movies",apiLimiter, movieRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/movies", apiLimiter, movieRoutes);
 // theatre routes
-app.use("/api/theatres",apiLimiter, theatreRoutes);
+app.use("/api/theatres", apiLimiter, theatreRoutes);
 // Booking routes
-app.use("/api/bookings",apiLimiter, bookingRoutes);
+app.use("/api/bookings", apiLimiter, bookingRoutes);
 // show
-app.use("/api/shows",apiLimiter, showRoutes);
+app.use("/api/shows", apiLimiter, showRoutes);
 // screen
-app.use("/api/screens",apiLimiter,  screenRoutes);
+app.use("/api/screens", apiLimiter, screenRoutes);
 // payment
-app.use("/api/payment",paymentLimiter, paymentRoutes);
+app.use("/api/payment", paymentLimiter, paymentRoutes);
 // dynamic offers and proposals
 app.use("/api/offers", apiLimiter, offerRoutes);
 app.use("/api/proposals", apiLimiter, proposalRoutes);
