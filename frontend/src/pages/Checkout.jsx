@@ -384,12 +384,12 @@ const Checkout = () => {
   const screen = booking.show?.screen;
   const theatre = screen?.theatre;
 
-  // Billing breakdown parameters
+  // Billing breakdown parameters from backend Single Source of Truth
   const ticketCount = booking.seats.length;
-  const ticketSubtotal = booking.totalAmount;
-  const convenienceFee = ticketCount * 28; // ₹28 per ticket
-  const gstOnFee = Math.round(convenienceFee * 0.18); // 18% GST on handling fee
-  const orderGrandTotal = ticketSubtotal - discountAmount; // Backend expects ticketSubtotal only minus coupon discount
+  const ticketSubtotal = booking.subtotal !== undefined ? booking.subtotal : booking.totalAmount;
+  const convenienceFee = booking.convenienceFee !== undefined ? booking.convenienceFee : 0;
+  const gstOnFee = booking.gst !== undefined ? booking.gst : 0;
+  const orderGrandTotal = booking.totalAmount - discountAmount;
 
   return (
     <div className="bg-[#0A0A0A] text-white min-h-screen py-10 px-4 md:px-8 select-none flex flex-col justify-center">
@@ -569,16 +569,7 @@ const Checkout = () => {
                 <span className="text-neutral-200">₹{gstOnFee}</span>
               </div>
 
-              {/* Cineverse Launch Promo to match backend ticket-only order creation */}
-              <div className="flex justify-between text-green-500 bg-green-950/15 border border-green-500/10 px-3 py-2 rounded-xl text-[11px] items-center">
-                <span className="flex items-center gap-1 font-black">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Promo: Launch Offer
-                </span>
-                <span className="font-extrabold">-₹{convenienceFee + gstOnFee}</span>
-              </div>
-
-              {discountAmount > 0 && (
+               {discountAmount > 0 && (
                 <div className="flex justify-between text-emerald-500 bg-emerald-950/15 border border-emerald-500/10 px-3 py-2 rounded-xl text-[11px] items-center">
                   <span className="flex items-center gap-1 font-black">
                     <Sparkles className="w-3.5 h-3.5" />

@@ -28,6 +28,21 @@ const bookingSchema = new mongoose.Schema(
       required: true,
     },
 
+    subtotal: {
+      type: Number,
+      default: 0,
+    },
+
+    convenienceFee: {
+      type: Number,
+      default: 0,
+    },
+
+    gst: {
+      type: Number,
+      default: 0,
+    },
+
     // Payment gateway se payment id aayegi (Razorpay)
     paymentId: {
       type: String,

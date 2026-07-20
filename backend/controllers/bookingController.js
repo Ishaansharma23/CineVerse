@@ -68,8 +68,11 @@ const createBooking = async (req, res) => {
       lockedSeats.push(seat);
     }
 
-    // Total amount calculate karo
-    const totalAmount = seats.length * show.price;
+    // Total amount, convenience fee, and GST calculations (matching the chatbot flow)
+    const subtotal = seats.length * show.price;
+    const convenienceFee = 30 * seats.length;
+    const gst = Math.round(0.18 * (subtotal + convenienceFee));
+    const totalAmount = subtotal + convenienceFee + gst;
 
     // Unique booking id generate karo
     const bookingId = `CV-${Date.now()}`;
@@ -85,7 +88,11 @@ const createBooking = async (req, res) => {
       // Selected seats
       seats,
 
-      // Total amount
+      subtotal,
+      convenienceFee,
+      gst,
+
+      // Total amount (grand total)
       totalAmount,
 
       // Booking id
