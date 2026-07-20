@@ -450,8 +450,8 @@ const Dashboard = () => {
   if (!isAuthenticated) return null;
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white pt-24 pb-16 px-4 md:px-8 font-sans">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen bg-[#0A0A0A] text-white pt-6 pb-16 px-4 md:px-8 font-sans">
+      <div className="max-w-7xl mx-auto space-y-6">
 
         {/* Navigation Bar */}
         <div className="border-b border-neutral-850 pb-4 overflow-x-auto select-none scrollbar-none">
