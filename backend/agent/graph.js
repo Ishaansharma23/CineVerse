@@ -1037,8 +1037,16 @@ const bookingNode = async (state) => {
   // Create payment order stage (user confirmed booking summary)
   if (state.status === "CREATE_PAYMENT_ORDER") {
     const { calculateBookingPricing } = require("../services/pricingService");
-    const pricing = await calculateBookingPricing(selectedSeats.length, targetShow.price);
-    const { subtotal: totalTicketPrice, convenienceFee, gst, totalAmount: grandTotal } = pricing;
+    const pricing = await calculateBookingPricing(
+      selectedSeats.length,
+      targetShow.price,
+    );
+    const {
+      subtotal: totalTicketPrice,
+      convenienceFee,
+      gst,
+      totalAmount: grandTotal,
+    } = pricing;
 
     const bookingId = `CV-${Date.now()}`;
     const booking = await Booking.create({
@@ -1189,8 +1197,16 @@ const bookingNode = async (state) => {
 
   // Display summary (SEATS_LOCKED)
   const { calculateBookingPricing } = require("../services/pricingService");
-  const pricing = await calculateBookingPricing(selectedSeats.length, targetShow.price);
-  const { subtotal: totalTicketPrice, convenienceFee, gst, totalAmount: grandTotal } = pricing;
+  const pricing = await calculateBookingPricing(
+    selectedSeats.length,
+    targetShow.price,
+  );
+  const {
+    subtotal: totalTicketPrice,
+    convenienceFee,
+    gst,
+    totalAmount: grandTotal,
+  } = pricing;
 
   return {
     showId: targetShow._id.toString(),
@@ -1531,6 +1547,155 @@ const generalChatNode = async (state) => {
   };
 };
 
+const buildInteractiveUiElements = (state) => {
+  const { intent, status, data, movie, showDate, genre, language } = state;
+  let cards = [];
+  let reasoning = null;
+  let chips = [
+    { label: "Book Movie", query: "Book a movie showtime for today" },
+    { label: "Recommended", query: "What movies do you recommend?" },
+    { label: "My Bookings", query: "Show my booking history" },
+    { label: "Refund Status", query: "Check my refund status" },
+  ];
+
+  if (intent === "booking" || intent === "recommendation") {
+    if (
+      data &&
+      data.shows &&
+      Array.isArray(data.shows) &&
+      data.shows.length > 0
+    ) {
+      cards = data.shows.map((s) => ({
+        cardType: "show_card",
+        showId: s._id || s.id,
+        movieId: s.movie?._id || s.movie,
+        movieTitle: s.movie?.title || movie || "Showtime",
+        poster:
+          s.movie?.posterUrl ||
+          s.movie?.poster_path ||
+          s.movie?.poster ||
+          "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=500&auto=format&fit=crop&q=60",
+        genre: s.movie?.genres
+          ? Array.isArray(s.movie.genres)
+            ? s.movie.genres.join(", ")
+            : s.movie.genres
+          : s.movie?.genre || "Cinema",
+        language: s.movie?.language || "English",
+        format: s.screen?.screenType || "2D",
+        theatreName: s.screen?.theatre?.name || "CineVerse Theatre",
+        city: s.screen?.theatre?.city || "Delhi",
+        date: s.date
+          ? new Date(s.date).toLocaleDateString()
+          : showDate || "Today",
+        time: s.startTime || "7:00 PM",
+        price: s.price || 200,
+        rating: s.movie?.rating || 8.5,
+        runtime: s.movie?.runtime ? `${s.movie.runtime} min` : "2h 15m",
+      }));
+
+      reasoning = `I found ${cards.length} available showtimes. Ranked by highest rating, preferred format (IMAX/2D), and pricing.`;
+      chips = [
+        { label: "Today", query: `Book ${movie || "shows"} today` },
+        { label: "Tomorrow", query: `Book ${movie || "shows"} tomorrow` },
+        { label: "Under ₹300", query: "Show movies under ₹300" },
+        { label: "IMAX Shows", query: "Show IMAX format movies" },
+      ];
+    } else if (
+      data &&
+      data.candidates &&
+      Array.isArray(data.candidates) &&
+      data.candidates.length > 0
+    ) {
+      cards = data.candidates.map((m) => ({
+        cardType: "movie_card",
+        movieId: m._id || m.id,
+        title: m.title,
+        poster:
+          m.posterUrl ||
+          m.poster_path ||
+          m.poster ||
+          "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=500&auto=format&fit=crop&q=60",
+        genre: Array.isArray(m.genres)
+          ? m.genres.join(", ")
+          : m.genre || "Drama",
+        language: m.language || "English",
+        rating: m.rating || 8.2,
+        runtime: m.runtime ? `${m.runtime} min` : "2h 10m",
+        overview: m.overview || "An exciting cinematic experience.",
+      }));
+
+      reasoning = `Recommended based on your top genre preferences (${genre || "popular movies"}), ratings, and watch history.`;
+      chips = [
+        {
+          label: "Book Top Choice",
+          query: `Book ${cards[0]?.title || "movie"} today`,
+        },
+        { label: "Trending Movies", query: "Show trending movies" },
+        { label: "Comedy Movies", query: "Show comedy movies" },
+        { label: "Action Movies", query: "Show action movies" },
+      ];
+    } else if (
+      status === "ASK_DATE" ||
+      status === "ASK_MOVIE" ||
+      !movie ||
+      !showDate
+    ) {
+      chips = [
+        { label: "Today", query: "Today" },
+        { label: "Tomorrow", query: "Tomorrow" },
+        { label: "This Weekend", query: "This Weekend" },
+        { label: "IMAX Movies", query: "Book IMAX shows" },
+      ];
+    }
+  } else if (intent === "booking_history") {
+    if (
+      data &&
+      data.bookings &&
+      Array.isArray(data.bookings) &&
+      data.bookings.length > 0
+    ) {
+      cards = data.bookings.map((b) => ({
+        cardType: "booking_card",
+        bookingId: b.bookingId || b._id,
+        movieTitle: b.movie || b.show?.movie?.title || "CineVerse Movie",
+        theatreName:
+          b.theatre || b.show?.screen?.theatre?.name || "CineVerse Cinema",
+        date: b.date || "Scheduled Date",
+        time: b.time || b.show?.startTime || "Showtime",
+        seats: Array.isArray(b.seats)
+          ? b.seats.join(", ")
+          : b.seats || "Selected Seats",
+        status: b.status || b.bookingStatus || "Booked",
+        amount: b.totalAmount || b.amount || 300,
+      }));
+
+      chips = [
+        { label: "Cancel Ticket", query: "I want to cancel a ticket" },
+        { label: "Reschedule Ticket", query: "I want to reschedule my ticket" },
+        { label: "Refund Status", query: "Check my refund status" },
+      ];
+    }
+  } else if (intent === "refund") {
+    if (data && data.refund) {
+      cards = [
+        {
+          cardType: "refund_card",
+          bookingId: data.bookingId || "CV-REFUND",
+          refundAmount: data.refund.refundAmount || 0,
+          status: data.refund.eligible
+            ? "Eligible for Refund"
+            : "Non-refundable",
+          message: data.refund.eligible
+            ? "Refund will process within 5-7 business days."
+            : "Cancellations are only allowed >2h before showtime.",
+        },
+      ];
+    }
+  }
+
+  return { cards, reasoning, chips };
+};
+
 const responseFormatterNode = async (state) => {
   const { data, actionRequired } = state;
   let sanitizedData = null;
@@ -1553,7 +1718,14 @@ const responseFormatterNode = async (state) => {
     sanitize(sanitizedData);
   }
 
-  return { sanitizedData };
+  const uiElements = buildInteractiveUiElements(state);
+
+  return {
+    sanitizedData,
+    cards: uiElements.cards,
+    reasoning: uiElements.reasoning,
+    chips: uiElements.chips,
+  };
 };
 
 const responderNode = async (state) => {
@@ -1565,6 +1737,9 @@ const responderNode = async (state) => {
     pendingAction,
     pendingOptions,
     actionRequired,
+    cards,
+    reasoning,
+    chips,
   } = state;
 
   console.log("--- RESPONDER NODE INPUT ---");
@@ -1584,10 +1759,13 @@ const responderNode = async (state) => {
     let bypassMessage = sanitizedData?.message || "Your action is complete.";
     if (status === "BOOKING_SUCCESS") {
       bypassMessage =
-        "Your booking was successful! Redirecting you to checkout...";
+        "Your booking was reserved! Redirecting you to checkout...";
     }
     return {
       messages: [{ role: "assistant", content: bypassMessage }],
+      cards: cards || [],
+      reasoning: reasoning || null,
+      chips: chips || [],
     };
   }
 
@@ -1636,6 +1814,9 @@ Convert this context into a natural conversational response matching the guideli
     const reply = await callLLM(systemPrompt, [lastUserMessage]);
     return {
       messages: [{ role: "assistant", content: reply }],
+      cards: cards || [],
+      reasoning: reasoning || null,
+      chips: chips || [],
     };
   } catch (err) {
     console.error("Responder node LLM execution error:", err);
@@ -1648,6 +1829,9 @@ Convert this context into a natural conversational response matching the guideli
             "I'm having trouble phrasing my response right now, but I can help you with your booking. What would you like to check next?",
         },
       ],
+      cards: cards || [],
+      reasoning: reasoning || null,
+      chips: chips || [],
     };
   }
 };

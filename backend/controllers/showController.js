@@ -8,10 +8,52 @@ const createShow = async (req, res) => {
     const { movieId, screenId, date, startTime, endTime, price } = req.body;
 
     // Required fields check karo
-    if (!movieId || !screenId || !date || !startTime || !endTime || !price) {
+    if (!movieId || !screenId || !date || !startTime || !endTime || price === undefined) {
       return res.status(400).json({
         success: false,
         message: "Please provide all required fields",
+      });
+    }
+
+    // Validate Price
+    const numericPrice = Number(price);
+    if (isNaN(numericPrice) || numericPrice <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Ticket price must be a valid positive amount",
+      });
+    }
+
+    // Validate Date (must not be past)
+    const showDate = new Date(date);
+    if (isNaN(showDate.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a valid date format",
+      });
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (showDate < today) {
+      return res.status(400).json({
+        success: false,
+        message: "Show date cannot be in the past",
+      });
+    }
+
+    // Validate Start Time & End Time
+    const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+    if (!timeRegex.test(startTime) || !timeRegex.test(endTime)) {
+      return res.status(400).json({
+        success: false,
+        message: "Start time and End time must be in HH:mm format (e.g., 14:30)",
+      });
+    }
+
+    if (startTime >= endTime) {
+      return res.status(400).json({
+        success: false,
+        message: "End time must be strictly after Start time",
       });
     }
 

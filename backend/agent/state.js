@@ -1,5 +1,8 @@
 const { Annotation } = require("@langchain/langgraph");
+// Ye LangGraph ki Annotation class import kar rahi hai.
+// Iske through hum state ke har field ko define karte hain.
 
+// ye LangGraph ka State Schema hai. Isme define hota hai ki AI Agent ko conversation ke dauran kya-kya yaad rakhna hai aur jab multiple nodes state update karein to values kaise merge hongi.
 const AgentState = Annotation.Root({
   userId: Annotation({
     reducer: (x, y) => y ?? x,
@@ -11,10 +14,10 @@ const AgentState = Annotation.Root({
   }),
   messages: Annotation({
     reducer: (x, y) => x.concat(y),
-    default: () => [],
+    default: () => [], // jab convo start hoti to movie ka wo null rehta val
   }),
   intent: Annotation({
-    reducer: (x, y) => y ?? x,
+    reducer: (x, y) => y ?? x,// Purani value aur nayi value me se kis ko rakhna hai. ye decide krta h
     default: () => "general_chat",
   }),
   movie: Annotation({
@@ -112,6 +115,22 @@ const AgentState = Annotation.Root({
   sanitizedData: Annotation({
     reducer: (x, y) => y ?? x,
     default: () => null,
+  }),
+  cards: Annotation({
+    reducer: (x, y) => y ?? x,
+    default: () => [],
+  }),
+  reasoning: Annotation({
+    reducer: (x, y) => y ?? x,
+    default: () => null,
+  }),
+  chips: Annotation({
+    reducer: (x, y) => y ?? x,
+    default: () => [],
+  }),
+  extractedEntities: Annotation({
+    reducer: (x, y) => y ?? x,
+    default: () => ({}),
   }),
 });
 

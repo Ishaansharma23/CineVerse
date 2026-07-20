@@ -4,13 +4,30 @@ import gsap from 'gsap';
 import request from '../services/api';
 
 const ListYourShow = () => {
-  const [formData, setFormData] = useState({ name: '', email: '', showName: '', category: 'Comedy', city: 'Kolkata', expectedPrice: 200, message: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', showName: '', category: 'Comedy', city: 'Kolkata', expectedPrice: 200, message: '', theatreId: '', mediaLink: '' });
   const [success, setSuccess] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [theatres, setTheatres] = useState([]);
   const containerRef = useRef(null);
 
   useEffect(() => {
+    const fetchTheatres = async () => {
+      try {
+        const response = await request('/theatres');
+        if (response.success && response.theatres) {
+          setTheatres(response.theatres.filter(t => t.status === 'approved'));
+          if (response.theatres.length > 0) {
+            setFormData(prev => ({ ...prev, theatreId: response.theatres[0]._id }));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch theatres", err);
+      }
+    };
+
+    fetchTheatres();
+
     if (containerRef.current) {
       gsap.fromTo(
         containerRef.current,
@@ -166,6 +183,20 @@ const ListYourShow = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
+                  <label className="uppercase tracking-wider">Select Theatre</label>
+                  <select
+                    required
+                    value={formData.theatreId}
+                    onChange={(e) => setFormData({ ...formData, theatreId: e.target.value })}
+                    className="w-full bg-[#1A1A1A] border border-neutral-800 focus:border-rose-650 rounded-xl p-3 text-neutral-200 outline-none"
+                  >
+                    <option value="" disabled>Select a theatre</option>
+                    {theatres.map((t) => (
+                      <option key={t._id} value={t._id}>{t.name} ({t.city})</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
                   <label className="uppercase tracking-wider">Location City</label>
                   <input
                     type="text"
@@ -175,6 +206,9 @@ const ListYourShow = () => {
                     className="w-full bg-[#1A1A1A] border border-neutral-800 focus:border-rose-650 rounded-xl p-3 text-neutral-200 outline-none"
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="uppercase tracking-wider">Expected Ticket Price (₹)</label>
                   <input
@@ -183,6 +217,17 @@ const ListYourShow = () => {
                     value={formData.expectedPrice}
                     onChange={(e) => setFormData({ ...formData, expectedPrice: e.target.value })}
                     className="w-full bg-[#1A1A1A] border border-neutral-800 focus:border-rose-655 rounded-xl p-3 text-neutral-200 outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="uppercase tracking-wider">Media Link (Video/Drive)</label>
+                  <input
+                    type="url"
+                    required
+                    placeholder="https://youtube.com/..."
+                    value={formData.mediaLink}
+                    onChange={(e) => setFormData({ ...formData, mediaLink: e.target.value })}
+                    className="w-full bg-[#1A1A1A] border border-neutral-800 focus:border-rose-650 rounded-xl p-3 text-neutral-200 outline-none"
                   />
                 </div>
               </div>

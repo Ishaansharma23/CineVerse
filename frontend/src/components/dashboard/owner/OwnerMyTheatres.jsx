@@ -1,17 +1,31 @@
 import React from 'react';
-import { Plus, Tv, MapPin } from 'lucide-react';
+import { Plus, Tv, MapPin, ArrowRight } from 'lucide-react';
 
-const OwnerMyTheatres = ({ theatres, selectedTheatreId, setSelectedTheatreId, setShowTheatreModal }) => {
+const OwnerMyTheatres = ({ theatres, selectedTheatreId, setSelectedTheatreId, setShowTheatreModal, onNextStep }) => {
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-lg font-bold text-neutral-200 uppercase tracking-wider">My Theatres</h2>
-        <button
-          onClick={() => setShowTheatreModal(true)}
-          className="flex items-center gap-2 bg-rose-650 hover:bg-rose-700 px-4 py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-colors cursor-pointer"
-        >
-          <Plus className="w-4 h-4" /> Add Theatre
-        </button>
+      <div className="flex justify-between items-center gap-4 flex-wrap">
+        <div className="space-y-1">
+          <h2 className="text-lg font-bold text-neutral-200 uppercase tracking-wider">Step 1: Select Theatre</h2>
+          <p className="text-xs text-neutral-500 font-semibold">Choose a registered theatre to manage screens and shows.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowTheatreModal(true)}
+            className="flex items-center gap-2 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 px-4 py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-colors cursor-pointer text-neutral-300"
+          >
+            <Plus className="w-4 h-4" /> Add Theatre
+          </button>
+          
+          <button
+            onClick={onNextStep}
+            disabled={!selectedTheatreId}
+            className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 disabled:bg-neutral-850 disabled:text-neutral-600 text-white px-5 py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all cursor-pointer disabled:cursor-not-allowed shadow-lg shadow-rose-600/10"
+          >
+            <span>Next: Choose Screen</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {theatres.length === 0 ? (
@@ -27,7 +41,7 @@ const OwnerMyTheatres = ({ theatres, selectedTheatreId, setSelectedTheatreId, se
               onClick={() => setSelectedTheatreId(theatre._id)}
               className={`p-6 rounded-2xl border transition-all cursor-pointer space-y-4 ${
                 selectedTheatreId === theatre._id
-                  ? 'bg-neutral-900 border-rose-600 shadow-xl shadow-rose-600/5'
+                  ? 'bg-neutral-900 border-rose-600 shadow-xl shadow-rose-600/10 ring-1 ring-rose-600/30'
                   : 'bg-neutral-900/40 border-neutral-850 hover:border-neutral-800'
               }`}
             >

@@ -21,6 +21,7 @@ import OwnerMyTheatres from '../components/dashboard/owner/OwnerMyTheatres';
 import OwnerScreens from '../components/dashboard/owner/OwnerScreens';
 import OwnerShows from '../components/dashboard/owner/OwnerShows';
 import OwnerAnalytics from '../components/dashboard/owner/OwnerAnalytics';
+import OwnerShowProposals from '../components/dashboard/owner/OwnerShowProposals';
 
 import TheatreRegistrationModal from '../components/dashboard/modals/TheatreRegistrationModal';
 import ScreenConfigurationModal from '../components/dashboard/modals/ScreenConfigurationModal';
@@ -136,7 +137,8 @@ const Dashboard = () => {
     }
 
     if (activeTab === 'proposals' && (isOwner || isAdmin)) {
-      request('/proposals')
+      const endpoint = isOwner ? '/proposals/owner' : '/proposals';
+      request(endpoint)
         .then(res => {
           if (res.success) setProposals(res.proposals || []);
         })
@@ -152,7 +154,8 @@ const Dashboard = () => {
 
   const handleUpdateProposalStatus = async (proposalId, status) => {
     try {
-      const res = await request(`/proposals/${proposalId}/status`, {
+      const endpoint = isOwner ? `/proposals/${proposalId}/owner-approve` : `/proposals/${proposalId}/status`;
+      const res = await request(endpoint, {
         method: 'PUT',
         body: JSON.stringify({ status })
       });
@@ -464,7 +467,7 @@ const Dashboard = () => {
                     activeTab === 'theatres' ? 'bg-white text-black' : 'bg-neutral-900 text-neutral-450 hover:text-white'
                   }`}
                 >
-                  My Theatres
+                  Step 1: My Theatres
                 </button>
                 <button
                   onClick={() => setActiveTab('screens')}
@@ -472,7 +475,7 @@ const Dashboard = () => {
                     activeTab === 'screens' ? 'bg-white text-black' : 'bg-neutral-900 text-neutral-450 hover:text-white'
                   }`}
                 >
-                  Screens
+                  Step 2: Screens
                 </button>
                 <button
                   onClick={() => setActiveTab('shows')}
@@ -480,7 +483,7 @@ const Dashboard = () => {
                     activeTab === 'shows' ? 'bg-white text-black' : 'bg-neutral-900 text-neutral-450 hover:text-white'
                   }`}
                 >
-                  Shows
+                  Step 3: Shows
                 </button>
                 <button
                   onClick={() => setActiveTab('analytics')}
@@ -600,6 +603,7 @@ const Dashboard = () => {
                 selectedTheatreId={selectedTheatreId}
                 setSelectedTheatreId={setSelectedTheatreId}
                 setShowTheatreModal={setShowTheatreModal}
+                onNextStep={() => setActiveTab('screens')}
               />
             )}
 
@@ -610,6 +614,8 @@ const Dashboard = () => {
                 setSelectedTheatreId={setSelectedTheatreId}
                 screens={screens}
                 setShowScreenModal={setShowScreenModal}
+                onPrevStep={() => setActiveTab('theatres')}
+                onNextStep={() => setActiveTab('shows')}
               />
             )}
 
@@ -622,6 +628,7 @@ const Dashboard = () => {
                 screens={screens}
                 setShowShowModal={setShowShowModal}
                 handleDeleteShow={handleDeleteShow}
+                onPrevStep={() => setActiveTab('screens')}
               />
             )}
 
@@ -634,8 +641,8 @@ const Dashboard = () => {
               />
             )}
 
-            {activeTab === 'proposals' && (
-              <AdminShowProposals
+            {activeTab === 'proposals' && isOwner && (
+              <OwnerShowProposals
                 proposals={proposals}
                 handleUpdateProposalStatus={handleUpdateProposalStatus}
               />
@@ -680,6 +687,13 @@ const Dashboard = () => {
                 promos={promos}
                 setShowPromoModal={setShowPromoModal}
                 handleDeletePromo={handleDeletePromo}
+              />
+            )}
+
+            {activeTab === 'proposals' && isAdmin && (
+              <AdminShowProposals
+                proposals={proposals}
+                handleUpdateProposalStatus={handleUpdateProposalStatus}
               />
             )}
 

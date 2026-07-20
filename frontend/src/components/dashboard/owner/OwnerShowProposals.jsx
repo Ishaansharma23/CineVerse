@@ -1,10 +1,10 @@
 import React from 'react';
 import { FileText } from 'lucide-react';
 
-const AdminShowProposals = ({ proposals, handleUpdateProposalStatus }) => {
+const OwnerShowProposals = ({ proposals, handleUpdateProposalStatus }) => {
   return (
     <div className="space-y-6 animate-fadeIn">
-      <h2 className="text-lg font-bold text-neutral-200 uppercase tracking-wider">Show Proposals Review</h2>
+      <h2 className="text-lg font-bold text-neutral-200 uppercase tracking-wider">My Theatre Show Proposals</h2>
 
       {proposals.length === 0 ? (
         <div className="py-16 text-center border border-dashed border-neutral-900 rounded-3xl bg-neutral-950/20">
@@ -59,13 +59,13 @@ const AdminShowProposals = ({ proposals, handleUpdateProposalStatus }) => {
                     </span>
                   </td>
                   <td className="p-4 text-right space-x-2">
-                    {prop.status === 'pending_admin' && (
+                    {prop.status === 'pending_owner' && (
                       <div className="flex gap-2 justify-end">
                         <button
-                          onClick={() => handleUpdateProposalStatus(prop._id, 'approved')}
+                          onClick={() => handleUpdateProposalStatus(prop._id, 'pending_admin')}
                           className="px-2.5 py-1.5 bg-emerald-600/10 border border-emerald-500/20 hover:border-emerald-500 text-emerald-500 text-[10px] font-bold rounded-lg uppercase transition-all cursor-pointer flex-shrink-0"
                         >
-                          Approve
+                          Approve for Admin
                         </button>
                         <button
                           onClick={() => handleUpdateProposalStatus(prop._id, 'rejected')}
@@ -86,4 +86,4 @@ const AdminShowProposals = ({ proposals, handleUpdateProposalStatus }) => {
   );
 };
 
-export default AdminShowProposals;
+export default OwnerShowProposals;

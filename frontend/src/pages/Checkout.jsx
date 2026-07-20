@@ -25,13 +25,14 @@ const Checkout = () => {
   const [promoError, setPromoError] = useState('');
   const [validatingPromo, setValidatingPromo] = useState(false);
   const [discountAmount, setDiscountAmount] = useState(0);
+  const [availableOffers, setAvailableOffers] = useState([]);
 
   const paymentCompletedRef = useRef(false);
 
   // Retrieve or fallback to active booking ID
   const activeBookingId = currentBooking?._id || localStorage.getItem('cv_active_booking_id');
 
-  // 1. Add Razorpay Script dynamically on mount & fetch populated booking details
+  // 1. Add Razorpay Script dynamically on mount & fetch populated booking details & available offers
   useEffect(() => {
     let isMounted = true;
 
@@ -46,6 +47,15 @@ const Checkout = () => {
       if (isMounted) setErrorMsg('Failed to load payment gateway SDK.');
     };
     document.body.appendChild(script);
+
+    // Fetch active promo offers
+    request('/offers')
+      .then((res) => {
+        if (isMounted && res.success) {
+          setAvailableOffers(res.offers || []);
+        }
+      })
+      .catch((err) => console.error('Failed to load active promo offers:', err));
 
     // Fetch booking details (fully populated)
     const fetchBookingDetails = async () => {
@@ -77,6 +87,43 @@ const Checkout = () => {
       document.body.removeChild(script);
     };
   }, [activeBookingId]);
+
+  // 1.5. Apply promo helper (used by form and 1-click promo buttons)
+  const applyPromoCode = async (codeToApply) => {
+    const code = codeToApply || promoCode;
+    if (!code.trim()) return;
+    setValidatingPromo(true);
+    setPromoError('');
+    try {
+      const response = await request('/offers/validate', {
+        method: 'POST',
+        body: JSON.stringify({
+          code,
+          amount: booking?.totalAmount || 0,
+        }),
+      });
+
+      if (response.success) {
+        setAppliedPromo(response.offer);
+        setDiscountAmount(response.discountAmount);
+        setPromoCode(code.toUpperCase());
+        toast.success(response.message || 'Promo code applied successfully!');
+      } else {
+        setPromoError(response.message || 'Invalid promo code.');
+        toast.error(response.message || 'Invalid promo code.');
+      }
+    } catch (err) {
+      setPromoError(err.message || 'Error validating promo code.');
+      toast.error(err.message || 'Error validating promo code.');
+    } finally {
+      setValidatingPromo(false);
+    }
+  };
+
+  const handleApplyPromo = (e) => {
+    e.preventDefault();
+    applyPromoCode(promoCode);
+  };
 
   // 2. Countdown timer for seat lock expiry
   useEffect(() => {
@@ -166,35 +213,7 @@ const Checkout = () => {
     navigate(-1);
   };
 
-  const handleApplyPromo = async (e) => {
-    e.preventDefault();
-    if (!promoCode.trim()) return;
-    setValidatingPromo(true);
-    setPromoError('');
-    try {
-      const response = await request('/offers/validate', {
-        method: 'POST',
-        body: JSON.stringify({
-          code: promoCode,
-          amount: booking?.totalAmount || 0,
-        }),
-      });
 
-      if (response.success) {
-        setAppliedPromo(response.offer);
-        setDiscountAmount(response.discountAmount);
-        toast.success(response.message || 'Promo code applied successfully!');
-      } else {
-        setPromoError(response.message || 'Invalid promo code.');
-        toast.error(response.message || 'Invalid promo code.');
-      }
-    } catch (err) {
-      setPromoError(err.message || 'Error validating promo code.');
-      toast.error(err.message || 'Error validating promo code.');
-    } finally {
-      setValidatingPromo(false);
-    }
-  };
 
   const handleRemovePromo = () => {
     setAppliedPromo(null);
@@ -504,6 +523,39 @@ const Checkout = () => {
               <Sparkles className="w-4 h-4 text-rose-500 animate-pulse" />
               Apply Promo Code
             </h3>
+
+            {/* List of Available Offers */}
+            {!appliedPromo && availableOffers.length > 0 && (
+              <div className="space-y-2 pt-1 pb-1">
+                <p className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider">Available Offers for You:</p>
+                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                  {availableOffers.map((offer) => (
+                    <div key={offer._id} className="p-2.5 bg-neutral-950/80 border border-neutral-850 hover:border-neutral-750 rounded-xl flex items-center justify-between gap-2 transition-all">
+                      <div className="space-y-0.5 min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-[11px] font-black text-rose-500 uppercase tracking-wider">{offer.code}</span>
+                          <span className="text-[9px] font-extrabold text-emerald-450 bg-emerald-500/10 px-1.5 py-0.2 rounded">
+                            {offer.discountType === 'flat' ? `₹${offer.discountValue} OFF` : `${offer.discountValue}% OFF`}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-neutral-300 font-semibold truncate">{offer.title}</p>
+                        <p className="text-[9px] text-neutral-550">
+                          {offer.minPurchase > 0 ? `Min spend: ₹${offer.minPurchase}` : 'No minimum spend required'}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => applyPromoCode(offer.code)}
+                        disabled={validatingPromo}
+                        className="px-3 py-1.5 bg-rose-600/15 hover:bg-rose-600/30 border border-rose-500/30 text-rose-450 text-[10px] font-black uppercase rounded-lg transition-all cursor-pointer flex-shrink-0"
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             
             {appliedPromo ? (
               <div className="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-xl">
