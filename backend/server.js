@@ -27,6 +27,10 @@ registerSocketHandlers(io);
 
 connectDB()
   .then(async () => {
+    // Seed default pricing config if not present
+    const { seedPricingConfig } = require("./services/pricingService");
+    await seedPricingConfig();
+
     // Redis connect
     await connectRedis();
 

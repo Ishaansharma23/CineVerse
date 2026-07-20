@@ -12,6 +12,7 @@ const paymentRoutes = require("./routes/paymentRoutes.route");
 const offerRoutes = require("./routes/offerRoutes.route");
 const proposalRoutes = require("./routes/proposalRoutes.route");
 const aiRoutes = require("./routes/aiRoutes.route");
+const pricingRoutes = require("./routes/pricingRoutes.route");
 const {
   apiLimiter,
   authLimiter,
@@ -58,5 +59,6 @@ app.use("/api/payment", paymentLimiter, paymentRoutes);
 app.use("/api/offers", apiLimiter, offerRoutes);
 app.use("/api/proposals", apiLimiter, proposalRoutes);
 app.use("/api/ai", apiLimiter, aiRoutes);
+app.use("/api/admin/pricing", pricingRoutes);
 
 module.exports = app;
