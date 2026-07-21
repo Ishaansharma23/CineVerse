@@ -365,24 +365,13 @@ const AIBuddy = () => {
                                       </div>
                                     </div>
 
-                                    <div className="flex gap-2 pt-1 border-t border-neutral-800">
-                                      {card.movieId && (
-                                        <button
-                                          onClick={() => {
-                                            setIsOpen(false);
-                                            navigate(`/movie/${card.movieId}`);
-                                          }}
-                                          className="flex-1 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 rounded-lg text-[10px] font-semibold uppercase tracking-wider transition-colors border border-neutral-700 cursor-pointer text-center"
-                                        >
-                                          View Details
-                                        </button>
-                                      )}
+                                    <div className="pt-1 border-t border-neutral-800">
                                       <button
                                         onClick={() => {
                                           setIsOpen(false);
-                                          navigate(`/booking/${card.showId}`);
+                                          navigate(`/show/${card.showId}/seats`);
                                         }}
-                                        className="flex-1 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors shadow-sm cursor-pointer text-center flex items-center justify-center gap-1"
+                                        className="w-full py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors shadow-sm cursor-pointer text-center flex items-center justify-center gap-1"
                                       >
                                         <span>Book Now</span>
                                         <ArrowRight className="w-3 h-3" />
@@ -404,19 +393,13 @@ const AIBuddy = () => {
                                         <p className="text-[10px] text-neutral-400 line-clamp-2">{card.overview}</p>
                                       </div>
                                     </div>
-                                    <div className="flex gap-2 pt-1 border-t border-neutral-800">
+                                    <div className="pt-1 border-t border-neutral-800">
                                       <button
                                         onClick={() => {
                                           setIsOpen(false);
-                                          navigate(`/movie/${card.movieId}`);
+                                          navigate(`/movies/${card.tmdbId || card.movieId || card.id}`);
                                         }}
-                                        className="flex-1 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 rounded-lg text-[10px] font-semibold uppercase tracking-wider transition-colors border border-neutral-700 cursor-pointer text-center"
-                                      >
-                                        View Details
-                                      </button>
-                                      <button
-                                        onClick={() => handleSend(`Book showtimes for ${card.title}`)}
-                                        className="flex-1 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer text-center"
+                                        className="w-full py-1.5 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 rounded-lg text-[10px] font-semibold uppercase tracking-wider transition-colors border border-neutral-700 cursor-pointer text-center"
                                       >
                                         Find Shows
                                       </button>

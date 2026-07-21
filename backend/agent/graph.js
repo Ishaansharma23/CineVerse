@@ -397,7 +397,8 @@ const responseFormatterNode = async (state) => {
     if (data.movies && Array.isArray(data.movies) && data.movies.length > 0) {
       cards = data.movies.map((m) => ({
         cardType: "movie_card",
-        movieId: m._id || m.id,
+        movieId: m.tmdbId || m._id || m.id,
+        tmdbId: m.tmdbId || m._id || m.id,
         title: m.title,
         poster: m.posterUrl || m.poster || null,
         genre: Array.isArray(m.genres) ? m.genres.join(", ") : m.genre || null,
@@ -446,7 +447,8 @@ const responseFormatterNode = async (state) => {
     } else if (data.candidates && Array.isArray(data.candidates) && data.candidates.length > 0) {
       cards = data.candidates.map((m) => ({
         cardType: "movie_card",
-        movieId: m._id || m.id,
+        movieId: m.tmdbId || m._id || m.id,
+        tmdbId: m.tmdbId || m._id || m.id,
         title: m.title,
         poster: m.posterUrl || m.poster || null,
         genre: Array.isArray(m.genres) ? m.genres.join(", ") : m.genre || null,
