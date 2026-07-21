@@ -474,15 +474,17 @@ const getBookingHistoryTool = async (userId) => {
 const getRefundStatusTool = async (userId, bookingId) => {
   try {
     let query = { user: userId };
+    const refundFilter = [
+      { paymentStatus: "refunded" },
+      { refundStatus: { $ne: null } },
+      { refundId: { $ne: null } }
+    ];
 
     if (bookingId) {
       query.bookingId = bookingId;
+      query.$or = refundFilter;
     } else {
-      query.$or = [
-        { bookingStatus: "cancelled" },
-        { paymentStatus: { $in: ["refunded", "refund_pending", "refund_failed"] } },
-        { refundStatus: { $ne: null } },
-      ];
+      query.$or = refundFilter;
     }
 
     const bookings = await Booking.find(query)
@@ -497,7 +499,7 @@ const getRefundStatusTool = async (userId, bookingId) => {
         success: true,
         refundBookings: [],
         count: 0,
-        message: "You don't have any active or completed refund requests at the moment.",
+        message: "You don't have any refund requests yet.",
       };
     }
 
@@ -507,11 +509,11 @@ const getRefundStatusTool = async (userId, bookingId) => {
         const refundInfo = show ? await calculateRefundAmount(b, show) : { refundAmount: b.refundAmount || 0 };
 
         let statusLabel = "REFUND PENDING";
-        if (b.paymentStatus === "refunded" || b.refundStatus === "processed") {
+        if (b.refundStatus === "processed" || b.paymentStatus === "refunded") {
           statusLabel = "REFUNDED";
-        } else if (b.paymentStatus === "refund_failed" || b.refundStatus === "failed") {
+        } else if (b.refundStatus === "failed") {
           statusLabel = "REFUND FAILED";
-        } else if (b.paymentStatus === "refund_pending" || b.refundStatus === "pending" || b.bookingStatus === "cancelled") {
+        } else if (b.refundStatus === "pending") {
           statusLabel = "REFUND PENDING";
         }
 

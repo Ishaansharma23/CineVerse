@@ -80,38 +80,45 @@ const intentDetectNode = async (state) => {
     }
   }
 
-  // LLM Intent Classification
-  let detectedIntent = "general_chat";
-  try {
-    const rawLLMResponse = await callLLM(INTENT_CLASSIFICATION_PROMPT, [
-      { role: "user", content: lastUserMsg },
-    ]);
-    const cleaned = rawLLMResponse.replace(/```json/g, "").replace(/```/g, "").trim();
-    const parsed = JSON.parse(cleaned);
-    if (parsed.intent) {
-      detectedIntent = parsed.intent;
-    }
-  } catch (err) {
-    // Fallback intent classification regex
-    if (msgLower.includes("cancel")) {
-      detectedIntent = "cancellation";
-    } else if (msgLower.includes("refund status") || msgLower.includes("check refund")) {
-      detectedIntent = "refund_status";
-    } else if (msgLower.includes("refund")) {
-      detectedIntent = "refund";
-    } else if (msgLower.includes("history") || msgLower.includes("my ticket") || msgLower.includes("my booking")) {
-      detectedIntent = "booking_history";
-    } else if (msgLower.includes("trending") || msgLower.includes("popular")) {
-      detectedIntent = "trending_movies";
-    } else if (msgLower.includes("recommend") || msgLower.includes("suggest")) {
-      detectedIntent = "recommendation";
-    } else if (
-      msgLower.includes("book") ||
-      msgLower.includes("seat") ||
-      msgLower.includes("showtime") ||
-      msgLower.includes("ticket")
-    ) {
-      detectedIntent = "booking";
+  // Precise overrides to avoid LLM misclassification on core refund check keywords
+  let detectedIntent = null;
+  if (msgLower === "refund status" || msgLower.includes("refund status") || msgLower.includes("check refund") || msgLower.includes("track refund")) {
+    detectedIntent = "refund_status";
+  }
+
+  if (!detectedIntent) {
+    try {
+      const rawLLMResponse = await callLLM(INTENT_CLASSIFICATION_PROMPT, [
+        { role: "user", content: lastUserMsg },
+      ]);
+      const cleaned = rawLLMResponse.replace(/```json/g, "").replace(/```/g, "").trim();
+      const parsed = JSON.parse(cleaned);
+      if (parsed.intent) {
+        detectedIntent = parsed.intent;
+      }
+    } catch (err) {
+      // Fallback intent classification regex
+      detectedIntent = "general_chat";
+      if (msgLower.includes("cancel")) {
+        detectedIntent = "cancellation";
+      } else if (msgLower.includes("refund status") || msgLower.includes("check refund")) {
+        detectedIntent = "refund_status";
+      } else if (msgLower.includes("refund")) {
+        detectedIntent = "refund";
+      } else if (msgLower.includes("history") || msgLower.includes("my ticket") || msgLower.includes("my booking")) {
+        detectedIntent = "booking_history";
+      } else if (msgLower.includes("trending") || msgLower.includes("popular")) {
+        detectedIntent = "trending_movies";
+      } else if (msgLower.includes("recommend") || msgLower.includes("suggest")) {
+        detectedIntent = "recommendation";
+      } else if (
+        msgLower.includes("book") ||
+        msgLower.includes("seat") ||
+        msgLower.includes("showtime") ||
+        msgLower.includes("ticket")
+      ) {
+        detectedIntent = "booking";
+      }
     }
   }
 
@@ -331,6 +338,14 @@ const intentHandlers = {
     };
   },
 
+  refund_status: async (state) => {
+    const { userId, bookingId } = state;
+    const refundStatus = await getRefundStatusTool(userId, bookingId);
+    return {
+      status: "REFUND_STATUS_FOUND",
+      data: refundStatus,
+    };
+  },
   check_refund_status: async (state) => {
     const { userId, bookingId } = state;
     const refundStatus = await getRefundStatusTool(userId, bookingId);
@@ -456,7 +471,7 @@ const responseFormatterNode = async (state) => {
       } else if (count === 1) {
         reasoning = `I found your refund request. Select it below to view its latest status.`;
       } else {
-        reasoning = `You don't have any active or completed refund requests at the moment.`;
+        reasoning = `You don't have any refund requests yet.`;
       }
 
       cards = data.refundBookings.map((r) => ({
@@ -517,8 +532,8 @@ const responseFormatterNode = async (state) => {
 const responderNode = async (state) => {
   const { intent, status, sanitizedData, cards, reasoning, chips, actionRequired } = state;
 
-  // Use dynamic refund-specific reasoning directly if intent is check_refund_status
-  if (intent === "check_refund_status" && reasoning) {
+  // Use dynamic refund-specific reasoning directly if intent is check_refund_status or refund_status
+  if ((intent === "check_refund_status" || intent === "refund_status") && reasoning) {
     return {
       messages: [{ role: "assistant", content: reasoning }],
       cards: cards || [],
