@@ -331,16 +331,8 @@ const intentHandlers = {
     };
   },
 
-  refund_status: async (state) => {
+  check_refund_status: async (state) => {
     const { userId, bookingId } = state;
-    if (!bookingId) {
-      const bookings = await getBookingHistoryTool(userId);
-      return {
-        status: "SELECT_BOOKING_FOR_REFUND_STATUS",
-        data: { bookings, message: "Select a booking to check refund status." },
-      };
-    }
-
     const refundStatus = await getRefundStatusTool(userId, bookingId);
     return {
       status: "REFUND_STATUS_FOUND",
@@ -457,6 +449,31 @@ const responseFormatterNode = async (state) => {
         overview: m.overview || null,
       }));
       reasoning = `Recommended based on your preferences.`;
+    } else if (data.refundBookings && Array.isArray(data.refundBookings)) {
+      const count = data.refundBookings.length;
+      if (count > 1) {
+        reasoning = `I found ${count} refund requests. Select one below to view its current refund status.`;
+      } else if (count === 1) {
+        reasoning = `I found your refund request. Select it below to view its latest status.`;
+      } else {
+        reasoning = `You don't have any active or completed refund requests at the moment.`;
+      }
+
+      cards = data.refundBookings.map((r) => ({
+        cardType: "refund_card",
+        bookingId: r.bookingId,
+        movieTitle: r.movieTitle,
+        poster: r.poster,
+        theatreName: r.theatreName,
+        date: r.date,
+        time: r.time,
+        seats: r.seats,
+        refundAmount: r.refundAmount,
+        totalAmount: r.totalAmount,
+        status: r.refundStatus,
+        paymentStatus: r.paymentStatus,
+        eligible: r.eligible,
+      }));
     } else if (data.bookings && Array.isArray(data.bookings) && data.bookings.length > 0) {
       cards = data.bookings.map((b) => ({
         cardType: "booking_card",
@@ -500,6 +517,17 @@ const responseFormatterNode = async (state) => {
 const responderNode = async (state) => {
   const { intent, status, sanitizedData, cards, reasoning, chips, actionRequired } = state;
 
+  // Use dynamic refund-specific reasoning directly if intent is check_refund_status
+  if (intent === "check_refund_status" && reasoning) {
+    return {
+      messages: [{ role: "assistant", content: reasoning }],
+      cards: cards || [],
+      reasoning,
+      chips: chips || [],
+      actionRequired,
+    };
+  }
+
   const systemPrompt = `
 ${ASSISTANT_SYSTEM_PROMPT}
 
@@ -527,8 +555,7 @@ Structured Context:
       messages: [
         {
           role: "assistant",
-          content:
-            "Here are the details for your request. Select your preferred choice from the cards below to continue.",
+          content: reasoning || "Here are the details for your request. Select your preferred choice from the cards below to continue.",
         },
       ],
       cards: cards || [],

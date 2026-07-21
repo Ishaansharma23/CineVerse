@@ -470,36 +470,73 @@ const getBookingHistoryTool = async (userId) => {
   }
 };
 
-/**
- * Check Refund Status & Policy Eligibility
- */
+// refund wala 
 const getRefundStatusTool = async (userId, bookingId) => {
   try {
-    const booking = await Booking.findOne({ bookingId, user: userId })
+    let query = { user: userId };
+
+    if (bookingId) {
+      query.bookingId = bookingId;
+    } else {
+      query.$or = [
+        { bookingStatus: "cancelled" },
+        { paymentStatus: { $in: ["refunded", "refund_pending", "refund_failed"] } },
+        { refundStatus: { $ne: null } },
+      ];
+    }
+
+    const bookings = await Booking.find(query)
       .populate({
         path: "show",
         populate: [{ path: "movie" }, { path: "screen", populate: { path: "theatre" } }],
-      });
+      })
+      .sort({ updatedAt: -1 });
 
-    if (!booking) {
-      return { success: false, message: "Booking record not found." };
+    if (!bookings || bookings.length === 0) {
+      return {
+        success: true,
+        refundBookings: [],
+        count: 0,
+        message: "You don't have any active or completed refund requests at the moment.",
+      };
     }
 
-    const show = await Show.findById(booking.show._id || booking.show);
-    const refundInfo = await calculateRefundAmount(booking, show);
+    const formattedRefunds = await Promise.all(
+      bookings.map(async (b) => {
+        const show = b.show ? await Show.findById(b.show._id || b.show) : null;
+        const refundInfo = show ? await calculateRefundAmount(b, show) : { refundAmount: b.refundAmount || 0 };
+
+        let statusLabel = "REFUND PENDING";
+        if (b.paymentStatus === "refunded" || b.refundStatus === "processed") {
+          statusLabel = "REFUNDED";
+        } else if (b.paymentStatus === "refund_failed" || b.refundStatus === "failed") {
+          statusLabel = "REFUND FAILED";
+        } else if (b.paymentStatus === "refund_pending" || b.refundStatus === "pending" || b.bookingStatus === "cancelled") {
+          statusLabel = "REFUND PENDING";
+        }
+
+        return {
+          bookingId: b.bookingId,
+          movieTitle: b.show?.movie?.title || "Movie",
+          poster: b.show?.movie?.posterUrl || b.show?.movie?.poster || null,
+          theatreName: b.show?.screen?.theatre?.name || "Cinema",
+          seats: Array.isArray(b.seats) ? b.seats.join(", ") : b.seats || "N/A",
+          date: b.show?.date ? new Date(b.show.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null,
+          time: b.show?.startTime || null,
+          totalAmount: b.totalAmount,
+          refundAmount: b.refundAmount || refundInfo.refundAmount || b.totalAmount,
+          refundStatus: statusLabel,
+          paymentStatus: b.paymentStatus,
+          bookingStatus: b.bookingStatus,
+          eligible: refundInfo.eligible ?? true,
+        };
+      })
+    );
 
     return {
       success: true,
-      bookingId: booking.bookingId,
-      bookingStatus: booking.bookingStatus,
-      paymentStatus: booking.paymentStatus,
-      totalAmount: booking.totalAmount,
-      refundAmount: booking.refundAmount || refundInfo.refundAmount,
-      refundId: booking.refundId,
-      eligible: refundInfo.eligible,
-      reason: refundInfo.eligible
-        ? "Eligible for full/partial refund according to policy."
-        : "Cancellations are allowed only >2 hours before showtime.",
+      refundBookings: formattedRefunds,
+      count: formattedRefunds.length,
     };
   } catch (err) {
     console.error("getRefundStatusTool error:", err);
@@ -507,9 +544,9 @@ const getRefundStatusTool = async (userId, bookingId) => {
   }
 };
 
-/**
- * Reschedule Booking
- */
+
+// Reschedule Booking
+
 const rescheduleBookingTool = async (userId, oldBookingId, newShowId) => {
   try {
     const booking = await Booking.findOne({ bookingId: oldBookingId });

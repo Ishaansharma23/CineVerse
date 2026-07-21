@@ -440,12 +440,63 @@ const AIBuddy = () => {
                                 )}
 
                                 {card.cardType === "refund_card" && (
-                                  <div className="space-y-1 text-[11px]">
-                                    <div className="flex items-center justify-between text-emerald-400 font-bold">
-                                      <span>Refund: ₹{card.refundAmount}</span>
-                                      <span className="text-[9px] uppercase px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded">{card.status}</span>
+                                  <div className="space-y-2">
+                                    <div className="flex justify-between items-start">
+                                      <div>
+                                        <h4 className="font-bold text-white text-xs">{card.movieTitle}</h4>
+                                        <p className="text-[10px] text-neutral-400">{card.theatreName} • ID: {card.bookingId}</p>
+                                      </div>
+                                      <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
+                                        card.status === 'REFUNDED'
+                                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                          : card.status === 'REFUND FAILED'
+                                          ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                          : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                      }`}>
+                                        {card.status}
+                                      </span>
                                     </div>
-                                    <p className="text-[10px] text-neutral-300">{card.message}</p>
+
+                                    <div className="text-[10px] text-neutral-300 flex justify-between items-center font-mono">
+                                      <span>Seats: {card.seats}</span>
+                                      <span className="font-bold text-emerald-400">Refund Amount: ₹{card.refundAmount}</span>
+                                    </div>
+
+                                    {card.date && card.time && (
+                                      <div className="text-[10px] text-neutral-400 flex items-center gap-1 font-mono">
+                                        <Calendar className="w-3 h-3 text-rose-500" />
+                                        <span>{card.date} @ {card.time}</span>
+                                      </div>
+                                    )}
+
+                                    <div className="pt-2 border-t border-neutral-800">
+                                      {card.status === 'REFUND PENDING' && (
+                                        <button
+                                          onClick={() => handleSend(`Track refund for booking ${card.bookingId}`)}
+                                          className="w-full py-1.5 bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/30 text-amber-300 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer text-center"
+                                        >
+                                          Track Refund
+                                        </button>
+                                      )}
+
+                                      {card.status === 'REFUNDED' && (
+                                        <button
+                                          onClick={() => handleSend(`Show refund details for booking ${card.bookingId}`)}
+                                          className="w-full py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-300 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer text-center"
+                                        >
+                                          View Refund Details
+                                        </button>
+                                      )}
+
+                                      {card.status === 'REFUND FAILED' && (
+                                        <button
+                                          onClick={() => handleSend(`Contact support for refund ${card.bookingId}`)}
+                                          className="w-full py-1.5 bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/30 text-rose-300 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer text-center"
+                                        >
+                                          Contact Support
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
                                 )}
                               </div>
