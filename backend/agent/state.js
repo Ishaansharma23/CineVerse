@@ -1,8 +1,9 @@
 const { Annotation } = require("@langchain/langgraph");
-// Ye LangGraph ki Annotation class import kar rahi hai.
-// Iske through hum state ke har field ko define karte hain.
 
-// ye LangGraph ka State Schema hai. Isme define hota hai ki AI Agent ko conversation ke dauran kya-kya yaad rakhna hai aur jab multiple nodes state update karein to values kaise merge hongi.
+/**
+ * CineVerse Agent State Schema
+ * Simplified for orchestration: Intent -> Entity -> Tool Router -> Formatter -> Responder
+ */
 const AgentState = Annotation.Root({
   userId: Annotation({
     reducer: (x, y) => y ?? x,
@@ -14,10 +15,10 @@ const AgentState = Annotation.Root({
   }),
   messages: Annotation({
     reducer: (x, y) => x.concat(y),
-    default: () => [], // jab convo start hoti to movie ka wo null rehta val
+    default: () => [],
   }),
   intent: Annotation({
-    reducer: (x, y) => y ?? x,// Purani value aur nayi value me se kis ko rakhna hai. ye decide krta h
+    reducer: (x, y) => y ?? x,
     default: () => "general_chat",
   }),
   movie: Annotation({
@@ -44,30 +45,6 @@ const AgentState = Annotation.Root({
     reducer: (x, y) => y ?? x,
     default: () => null,
   }),
-  paymentStatus: Annotation({
-    reducer: (x, y) => y ?? x,
-    default: () => null,
-  }),
-  refundStatus: Annotation({
-    reducer: (x, y) => y ?? x,
-    default: () => null,
-  }),
-  selectedSeats: Annotation({
-    reducer: (x, y) => y ?? x,
-    default: () => [],
-  }),
-  seatCount: Annotation({
-    reducer: (x, y) => y ?? x,
-    default: () => 1,
-  }),
-  recommendationContext: Annotation({
-    reducer: (x, y) => y ?? x,
-    default: () => null,
-  }),
-  actionRequired: Annotation({
-    reducer: (x, y) => y ?? x,
-    default: () => null,
-  }),
   genre: Annotation({
     reducer: (x, y) => y ?? x,
     default: () => null,
@@ -76,31 +53,27 @@ const AgentState = Annotation.Root({
     reducer: (x, y) => y ?? x,
     default: () => null,
   }),
-  audience: Annotation({
-    reducer: (x, y) => y ?? x,
-    default: () => null,
-  }),
   mood: Annotation({
     reducer: (x, y) => y ?? x,
     default: () => null,
   }),
-  similarMovie: Annotation({
+  location: Annotation({
     reducer: (x, y) => y ?? x,
     default: () => null,
   }),
-  pendingAction: Annotation({
+  seatCount: Annotation({
+    reducer: (x, y) => y ?? x,
+    default: () => 1,
+  }),
+  pendingConfirmation: Annotation({
     reducer: (x, y) => y ?? x,
     default: () => null,
   }),
-  pendingOptions: Annotation({
+  confirmedAction: Annotation({
     reducer: (x, y) => y ?? x,
-    default: () => null,
+    default: () => false,
   }),
   status: Annotation({
-    reducer: (x, y) => y ?? x,
-    default: () => null,
-  }),
-  nextAction: Annotation({
     reducer: (x, y) => y ?? x,
     default: () => null,
   }),
@@ -108,13 +81,13 @@ const AgentState = Annotation.Root({
     reducer: (x, y) => y ?? x,
     default: () => null,
   }),
-  actionRequired: Annotation({
-    reducer: (x, y) => y ?? x,
-    default: () => true,
-  }),
   sanitizedData: Annotation({
     reducer: (x, y) => y ?? x,
     default: () => null,
+  }),
+  actionRequired: Annotation({
+    reducer: (x, y) => y ?? x,
+    default: () => true,
   }),
   cards: Annotation({
     reducer: (x, y) => y ?? x,
@@ -127,10 +100,6 @@ const AgentState = Annotation.Root({
   chips: Annotation({
     reducer: (x, y) => y ?? x,
     default: () => [],
-  }),
-  extractedEntities: Annotation({
-    reducer: (x, y) => y ?? x,
-    default: () => ({}),
   }),
 });
 

@@ -1,7 +1,17 @@
 import React from 'react';
 import { Plus, Tv, ArrowLeft, ArrowRight } from 'lucide-react';
 
-const OwnerScreens = ({ theatres, selectedTheatreId, setSelectedTheatreId, screens, setShowScreenModal, onPrevStep, onNextStep }) => {
+const OwnerScreens = ({ 
+  theatres, 
+  selectedTheatreId, 
+  setSelectedTheatreId, 
+  selectedScreenId, 
+  setSelectedScreenId, 
+  screens, 
+  setShowScreenModal, 
+  onPrevStep, 
+  onNextStep 
+}) => {
   const currentScreens = screens[selectedTheatreId] || [];
 
   return (
@@ -64,27 +74,46 @@ const OwnerScreens = ({ theatres, selectedTheatreId, setSelectedTheatreId, scree
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {currentScreens.map((screen) => (
-            <div key={screen._id} className="bg-neutral-900/50 border border-neutral-850 p-6 rounded-2xl space-y-4 hover:border-neutral-800 transition-colors">
-              <div className="flex justify-between items-center border-b border-neutral-800/80 pb-3">
-                <h3 className="font-extrabold text-sm text-neutral-200">Screen {screen.screenNumber}</h3>
-                <span className="text-[10px] text-rose-500 uppercase tracking-wider font-extrabold bg-rose-600/10 px-2 py-0.5 rounded">
-                  {screen.screenType}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-4 text-xs font-semibold text-neutral-450">
-                <div>
-                  <p className="text-neutral-500 text-[10px] uppercase">Rows</p>
-                  <p className="text-neutral-300 font-extrabold mt-0.5">{screen.layout?.rows || 8}</p>
+          {currentScreens.map((screen) => {
+            const isSelected = selectedScreenId === screen._id;
+
+            return (
+              <div 
+                key={screen._id} 
+                onClick={() => setSelectedScreenId(screen._id)}
+                className={`p-6 rounded-2xl space-y-4 transition-all duration-300 cursor-pointer ${
+                  isSelected
+                    ? 'border-2 border-rose-600 bg-[#161616] shadow-[0_0_20px_rgba(225,29,72,0.35)] hover:border-rose-500'
+                    : 'border border-neutral-850 hover:border-neutral-700 bg-neutral-900/50'
+                }`}
+              >
+                <div className="flex justify-between items-center border-b border-neutral-800/80 pb-3">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-extrabold text-sm text-neutral-200">Screen {screen.screenNumber}</h3>
+                    {isSelected && (
+                      <span className="px-2 py-0.5 bg-rose-600 text-white font-extrabold text-[9px] uppercase tracking-wider rounded">
+                        Selected
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-rose-500 uppercase tracking-wider font-extrabold bg-rose-600/10 px-2 py-0.5 rounded">
+                    {screen.screenType}
+                  </span>
                 </div>
-                <div>
-                  <p className="text-neutral-500 text-[10px] uppercase">Seats/Row</p>
-                  <p className="text-neutral-300 font-extrabold mt-0.5">{screen.layout?.seatsPerRow || 10}</p>
+                <div className="grid grid-cols-2 gap-4 text-xs font-semibold text-neutral-450">
+                  <div>
+                    <p className="text-neutral-500 text-[10px] uppercase">Rows</p>
+                    <p className="text-neutral-300 font-extrabold mt-0.5">{screen.layout?.rows || screen.totalRows || 8}</p>
+                  </div>
+                  <div>
+                    <p className="text-neutral-500 text-[10px] uppercase">Seats/Row</p>
+                    <p className="text-neutral-300 font-extrabold mt-0.5">{screen.layout?.seatsPerRow || screen.seatsPerRow || 10}</p>
+                  </div>
                 </div>
+                <p className="text-[11px] text-neutral-500 leading-relaxed font-semibold">Features: {screen.features || 'None listed'}</p>
               </div>
-              <p className="text-[11px] text-neutral-500 leading-relaxed font-semibold">Features: {screen.features || 'None listed'}</p>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

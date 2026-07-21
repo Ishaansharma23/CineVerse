@@ -1,5 +1,8 @@
 const express = require("express");
-const { getPricing, updatePricing } = require("../controllers/pricingController");
+const {
+  getPricing,
+  updatePricing,
+} = require("../controllers/pricingController");
 const { protect, authorizeRoles } = require("../middleware/authMiddleware");
 
 const router = express.Router();

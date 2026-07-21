@@ -8,7 +8,14 @@ const createShow = async (req, res) => {
     const { movieId, screenId, date, startTime, endTime, price } = req.body;
 
     // Required fields check karo
-    if (!movieId || !screenId || !date || !startTime || !endTime || price === undefined) {
+    if (
+      !movieId ||
+      !screenId ||
+      !date ||
+      !startTime ||
+      !endTime ||
+      price === undefined
+    ) {
       return res.status(400).json({
         success: false,
         message: "Please provide all required fields",
@@ -46,7 +53,8 @@ const createShow = async (req, res) => {
     if (!timeRegex.test(startTime) || !timeRegex.test(endTime)) {
       return res.status(400).json({
         success: false,
-        message: "Start time and End time must be in HH:mm format (e.g., 14:30)",
+        message:
+          "Start time and End time must be in HH:mm format (e.g., 14:30)",
       });
     }
 
@@ -169,9 +177,10 @@ const getMyShows = async (req, res) => {
     // Ab sirf in Audis ki ids nikal lo.
     const screenIds = screens.map((screen) => screen._id);
 
-    // In teeno Audis ke jitne bhi shows hain, sab le aao.
+    // In teeno Audis ke jitne bhi shows hain, sab le aao (scheduled status only).
     const shows = await Show.find({
       screen: { $in: screenIds },
+      status: "scheduled",
     })
       .populate("movie") // Movie ka name, poster, rating etc
       .populate("screen"); // Screen number, Audi type etc
@@ -265,13 +274,7 @@ const updateShow = async (req, res) => {
       });
     }
 
-    const {
-      date,
-      startTime,
-      endTime,
-      price,
-      status,
-    } = req.body;
+    const { date, startTime, endTime, price, status } = req.body;
 
     // Agar frontend ne new timing nahi bheji to purani timing use karo
     const newStartTime = startTime || show.startTime;
@@ -279,7 +282,6 @@ const updateShow = async (req, res) => {
 
     // Sirf tab overlap check karo jab date ya timing change ho
     if (date || startTime || endTime) {
-
       const existingShow = await Show.findOne({
         _id: { $ne: showId }, // Jis show ko update kar raha hu usko ignore karo
         screen: show.screen, // Sirf isi Audi ke shows check karo
@@ -312,9 +314,7 @@ const updateShow = async (req, res) => {
       message: "Show updated successfully",
       show: updatedShow,
     });
-
   } catch (error) {
-
     console.log("Error updating show:", error);
 
     res.status(500).json({
@@ -322,13 +322,11 @@ const updateShow = async (req, res) => {
       message: "Internal server error",
       error: error.message,
     });
-
   }
 };
 
 const deleteShow = async (req, res) => {
   try {
-
     // URL se show id lo
     const showId = req.params.id;
 
@@ -383,9 +381,7 @@ const deleteShow = async (req, res) => {
       success: true,
       message: "Show cancelled successfully",
     });
-
   } catch (error) {
-
     console.log("Error deleting show:", error);
 
     res.status(500).json({
@@ -393,7 +389,6 @@ const deleteShow = async (req, res) => {
       message: "Internal server error",
       error: error.message,
     });
-
   }
 };
 
@@ -401,12 +396,12 @@ const getShowsByMovie = async (req, res) => {
   try {
     const { movieId } = req.params;
     const { date } = req.query;
-    
+
     let query = {
       movie: movieId,
       status: "scheduled",
     };
-    
+
     if (date) {
       const startOfDay = new Date(date);
       startOfDay.setHours(0, 0, 0, 0);

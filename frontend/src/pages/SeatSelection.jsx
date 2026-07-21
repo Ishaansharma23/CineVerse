@@ -24,7 +24,25 @@ const SeatSelection = () => {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   
-  const totalAmount = selectedSeats.length * (show?.price || 150);
+  // Single Source of Truth Pricing Config (fetched from backend)
+  const [pricingConfig, setPricingConfig] = useState({ gstRate: 18, convenienceFee: 30 });
+
+  useEffect(() => {
+    request('/pricing')
+      .then((res) => {
+        if (res.success && res.convenienceFee !== undefined) {
+          setPricingConfig({
+            gstRate: res.gstRate ?? 18,
+            convenienceFee: res.convenienceFee ?? 30,
+          });
+        }
+      })
+      .catch((err) => console.error('Failed to load pricing config:', err));
+  }, []);
+
+  const subtotal = selectedSeats.length * (show?.price || 150);
+  const convenienceFee = selectedSeats.length > 0 ? pricingConfig.convenienceFee * selectedSeats.length : 0;
+  const totalAmount = subtotal + convenienceFee;
 
   const socketRef = useRef(null);
   const pageRef = useRef(null);
@@ -485,7 +503,7 @@ const SeatSelection = () => {
               </div>
               <div className="flex justify-between items-center text-neutral-400">
                 <span>Convenience Fee</span>
-                <span className="font-bold">₹{selectedSeats.length > 0 ? '40' : '0'}</span>
+                <span className="font-bold">₹{selectedSeats.length > 0 ? convenienceFee : 0}</span>
               </div>
             </div>
 
@@ -494,7 +512,7 @@ const SeatSelection = () => {
               <div className="flex justify-between items-center select-none">
                 <span className="text-xs font-bold text-neutral-200 uppercase tracking-wider">Total Amount</span>
                 <span className="text-xl font-black text-rose-500">
-                  ₹{selectedSeats.length > 0 ? (totalAmount + 40) : 0}
+                  ₹{selectedSeats.length > 0 ? totalAmount : 0}
                 </span>
               </div>
 

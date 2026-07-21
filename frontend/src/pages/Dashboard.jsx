@@ -424,15 +424,35 @@ const Dashboard = () => {
 
   const handleDeleteShow = async (showId) => {
     if (!window.confirm('Are you sure you want to cancel/delete this show?')) return;
+
+    // Optimistic UI update: Immediately remove deleted show from local React state
+    setShows((prev) => ({
+      ...prev,
+      [selectedTheatreId]: (prev[selectedTheatreId] || []).filter(
+        (show) => show._id !== showId
+      ),
+    }));
+
     try {
       const res = await request(`/shows/${showId}`, { method: 'DELETE' });
       if (res.success) {
         toast.success('Show cancelled successfully.');
         const showRes = await request(`/shows/my/${selectedTheatreId}`);
+        setShows((prev) => ({
+          ...prev,
+          [selectedTheatreId]: (showRes.shows || []).filter(
+            (s) => s._id !== showId && s.status === 'scheduled'
+          ),
+        }));
+      } else {
+        toast.error(res.message || 'Failed to cancel show.');
+        const showRes = await request(`/shows/my/${selectedTheatreId}`);
         setShows((prev) => ({ ...prev, [selectedTheatreId]: showRes.shows || [] }));
       }
     } catch (err) {
       toast.error(err.message || 'Failed to cancel show.');
+      const showRes = await request(`/shows/my/${selectedTheatreId}`);
+      setShows((prev) => ({ ...prev, [selectedTheatreId]: showRes.shows || [] }));
     }
   };
 
@@ -612,6 +632,8 @@ const Dashboard = () => {
                 theatres={theatres}
                 selectedTheatreId={selectedTheatreId}
                 setSelectedTheatreId={setSelectedTheatreId}
+                selectedScreenId={selectedScreenId}
+                setSelectedScreenId={setSelectedScreenId}
                 screens={screens}
                 setShowScreenModal={setShowScreenModal}
                 onPrevStep={() => setActiveTab('theatres')}

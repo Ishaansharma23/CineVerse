@@ -2,7 +2,9 @@ import React from 'react';
 import { Calendar, Trash2, ArrowLeft } from 'lucide-react';
 
 const OwnerShows = ({ theatres, selectedTheatreId, setSelectedTheatreId, shows, screens, setShowShowModal, handleDeleteShow, onPrevStep }) => {
-  const currentShows = shows[selectedTheatreId] || [];
+  const currentShows = (shows[selectedTheatreId] || []).filter(
+    (show) => show._id && show.status === 'scheduled'
+  );
 
   return (
     <div className="space-y-6">
