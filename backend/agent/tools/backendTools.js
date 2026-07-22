@@ -17,16 +17,41 @@ const { storePreference } = require("../rag/pinecone");
  */
 const searchMovieTool = async (query) => {
   try {
-    if (!query || query.trim() === "") {
+    if (!query || typeof query !== "string" || query.trim() === "") {
       return await Movie.find({ isActive: true }).sort({ popularity: -1 }).limit(10);
     }
-    const movies = await Movie.find({
+
+    const rawQuery = query.trim();
+    // Strip filler words to extract core movie name if query is natural language like "Book Obsession for today"
+    let cleanedQuery = rawQuery
+      .replace(/\b(book|booking|movie|movies|film|films|ticket|tickets|for|today|tonight|tomorrow|show|shows|please|can i|i want to|want)\b/gi, "")
+      .trim();
+
+    // If query had no movie title (e.g. "Book a movie today"), return active catalog
+    if (!cleanedQuery) {
+      return await Movie.find({ isActive: true }).sort({ popularity: -1 }).limit(10);
+    }
+
+    // Try finding active movies matching cleaned title or genre
+    let movies = await Movie.find({
       isActive: true,
       $or: [
-        { title: { $regex: query, $options: "i" } },
-        { genres: { $in: [new RegExp(query, "i")] } },
+        { title: { $regex: cleanedQuery, $options: "i" } },
+        { genres: { $in: [new RegExp(cleanedQuery, "i")] } },
       ],
     }).limit(10);
+
+    // Fallback to raw query regex search if cleaned query returned no hits
+    if (movies.length === 0 && cleanedQuery !== rawQuery) {
+      movies = await Movie.find({
+        isActive: true,
+        $or: [
+          { title: { $regex: rawQuery, $options: "i" } },
+          { genres: { $in: [new RegExp(rawQuery, "i")] } },
+        ],
+      }).limit(10);
+    }
+
     return movies;
   } catch (err) {
     console.error("searchMovieTool error:", err);

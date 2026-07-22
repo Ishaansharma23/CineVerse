@@ -1,6 +1,7 @@
 const { StateGraph, END } = require("@langchain/langgraph");
 const { ChatGoogleGenerativeAI } = require("@langchain/google-genai");
 const AgentState = require("./state");
+const Movie = require("../models/Movie");
 const {
   INTENT_CLASSIFICATION_PROMPT,
   ENTITY_EXTRACTION_PROMPT,
@@ -122,6 +123,19 @@ const intentDetectNode = async (state) => {
     }
   }
 
+  // Ensure booking intent overrides when user asks to book or buy tickets
+  if (
+    msgLower.includes("book") ||
+    msgLower.includes("booking") ||
+    msgLower.includes("ticket") ||
+    msgLower.includes("seat") ||
+    msgLower.includes("showtime")
+  ) {
+    if (detectedIntent !== "cancellation" && detectedIntent !== "refund" && detectedIntent !== "refund_status") {
+      detectedIntent = "booking";
+    }
+  }
+
   // Override if pending confirmation is active
   if (pendingConfirmation && !isRejected && !isConfirmed) {
     if (pendingConfirmation === "confirm_refund") detectedIntent = "refund";
@@ -171,6 +185,20 @@ const entityExtractNode = async (state) => {
       location: null,
       seatCount,
     };
+  }
+
+  // Active DB movie title lookup fallback if LLM didn't extract a movie title
+  if (!extracted.movie) {
+    try {
+      const activeMovies = await Movie.find({ isActive: true }).select("title");
+      for (const m of activeMovies) {
+        const titleLower = m.title.toLowerCase();
+        if (lastUserMsg.toLowerCase().includes(titleLower)) {
+          extracted.movie = m.title;
+          break;
+        }
+      }
+    } catch (e) {}
   }
 
   // Merge extracted entities with existing state
@@ -257,6 +285,13 @@ const intentHandlers = {
   },
 
   trending_movies: async (state) => {
+    if (state.movie) {
+      const movies = await searchMovieTool(state.movie);
+      return {
+        status: "TRENDING_MOVIES_FOUND",
+        data: { movies },
+      };
+    }
     const trendingMovies = await searchTrendingMoviesTool();
     return {
       status: "TRENDING_MOVIES_FOUND",
@@ -265,6 +300,13 @@ const intentHandlers = {
   },
 
   recommendation: async (state) => {
+    if (state.movie) {
+      const movies = await searchMovieTool(state.movie);
+      return {
+        status: "RECOMMENDATIONS_FOUND",
+        data: { candidates: movies },
+      };
+    }
     const { userId, genre, language, mood } = state;
     const recommendations = await recommendMoviesTool(userId, { genre, language, mood });
     return {
