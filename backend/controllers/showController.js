@@ -392,6 +392,31 @@ const deleteShow = async (req, res) => {
   }
 };
 
+const isFutureShowTime = (show) => {
+  if (!show || !show.date) return false;
+
+  const showDateTime = new Date(show.date);
+  let hours = 0;
+  let minutes = 0;
+
+  if (show.startTime) {
+    const parts = String(show.startTime).trim().split(" ");
+    const timeParts = parts[0].split(":").map(Number);
+    hours = timeParts[0] || 0;
+    minutes = timeParts[1] || 0;
+    if (parts.length === 2) {
+      const modifier = parts[1].toUpperCase();
+      if (modifier === "PM" && hours < 12) hours += 12;
+      if (modifier === "AM" && hours === 12) hours = 0;
+    }
+  }
+
+  showDateTime.setHours(hours, minutes, 0, 0);
+  const now = new Date();
+  
+  return showDateTime > now;
+};
+
 const getShowsByMovie = async (req, res) => {
   try {
     const { movieId } = req.params;
@@ -419,10 +444,12 @@ const getShowsByMovie = async (req, res) => {
         },
       });
 
+    const futureShows = shows.filter((s) => isFutureShowTime(s));
+
     res.status(200).json({
       success: true,
       message: "Shows fetched successfully",
-      shows,
+      shows: futureShows,
     });
   } catch (error) {
     res.status(500).json({

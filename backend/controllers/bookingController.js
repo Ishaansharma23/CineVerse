@@ -18,6 +18,31 @@ const {
 
 const { getIO } = require("../config/socket");
 
+const isFutureShowTime = (show) => {
+  if (!show || !show.date) return false;
+
+  const showDateTime = new Date(show.date);
+  let hours = 0;
+  let minutes = 0;
+
+  if (show.startTime) {
+    const parts = String(show.startTime).trim().split(" ");
+    const timeParts = parts[0].split(":").map(Number);
+    hours = timeParts[0] || 0;
+    minutes = timeParts[1] || 0;
+    if (parts.length === 2) {
+      const modifier = parts[1].toUpperCase();
+      if (modifier === "PM" && hours < 12) hours += 12;
+      if (modifier === "AM" && hours === 12) hours = 0;
+    }
+  }
+
+  showDateTime.setHours(hours, minutes, 0, 0);
+  const now = new Date();
+  
+  return showDateTime > now;
+};
+
 const createBooking = async (req, res) => {
   try {
     const { showId, seats } = req.body;
@@ -45,6 +70,13 @@ const createBooking = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "This show is not available for booking",
+      });
+    }
+
+    if (!isFutureShowTime(show)) {
+      return res.status(400).json({
+        success: false,
+        message: "This showtime has already ended and cannot be booked.",
       });
     }
 
@@ -172,11 +204,18 @@ const getMyBookings = async (req, res) => {
 // Get single booking by id
 const getBookingById = async (req, res) => {
   try {
-    // URL se booking id lo
-    const bookingId = req.params.id;
+    const param = req.params.id;
 
-    // Booking find karo aur show, movie, screen ki details bhi bhejo
-    const booking = await Booking.findById(bookingId).populate({
+    let query = {};
+    if (param.startsWith("CV-")) {
+      query = { bookingId: param };
+    } else if (param.match(/^[a-f0-9]{24}$/i)) {
+      query = { _id: param };
+    } else {
+      query = { bookingId: param };
+    }
+
+    const booking = await Booking.findOne(query).populate({
       path: "show",
       populate: [
         {
@@ -184,6 +223,7 @@ const getBookingById = async (req, res) => {
         },
         {
           path: "screen",
+          populate: { path: "theatre" },
         },
       ],
     });
@@ -195,7 +235,6 @@ const getBookingById = async (req, res) => {
       });
     }
 
-    // Check karo logged-in user isi booking ka owner hai ya nahi
     if (booking.user.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,

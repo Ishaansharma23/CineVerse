@@ -9,6 +9,90 @@ import { motion, AnimatePresence } from "framer-motion";
 import request from "../../services/api";
 import toast from "react-hot-toast";
 
+const SeatLayoutInteractiveCard = ({ card, onConfirm }) => {
+  const [selectedSeats, setSelectedSeats] = useState([]);
+  const targetCount = card.seatCount || 1;
+
+  const toggleSeat = (seatName, available) => {
+    if (!available) return;
+    setSelectedSeats((prev) => {
+      if (prev.includes(seatName)) {
+        return prev.filter((s) => s !== seatName);
+      }
+      if (prev.length >= targetCount) {
+        toast.error(`Please select exactly ${targetCount} seat(s).`);
+        return prev;
+      }
+      return [...prev, seatName];
+    });
+  };
+
+  const handleConfirm = () => {
+    if (selectedSeats.length !== targetCount) {
+      toast.error(`Please select exactly ${targetCount} seat(s).`);
+      return;
+    }
+    onConfirm(`Reserve seats ${selectedSeats.join(", ")} for ${card.movieTitle || "movie"}`);
+  };
+
+  return (
+    <div className="space-y-2 p-1 font-sans">
+      <div className="flex justify-between items-center text-[10px] text-neutral-300 font-mono">
+        <span className="font-bold text-white truncate max-w-[140px]">{card.movieTitle}</span>
+        <span className="text-rose-400 font-bold bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20 flex-shrink-0">
+          Select {targetCount} Seat(s)
+        </span>
+      </div>
+      <p className="text-[10px] text-neutral-400">{card.theatreName} • {card.date} @ {card.time}</p>
+
+      <div className="w-full h-1 bg-gradient-to-r from-rose-500 via-amber-500 to-emerald-500 rounded-full opacity-60 my-1.5"></div>
+      <p className="text-[8px] text-neutral-500 uppercase tracking-widest text-center">SCREEN THIS WAY</p>
+
+      <div className="grid grid-cols-6 gap-1 pt-1 max-h-48 overflow-y-auto pr-1">
+        {card.seats?.map((seat) => {
+          const isSelected = selectedSeats.includes(seat.name);
+          const isAvailable = seat.available;
+
+          let btnClass = "bg-neutral-800 text-neutral-300 border-neutral-700 hover:border-rose-500/50 cursor-pointer";
+          if (!isAvailable) {
+            btnClass = "bg-neutral-900 text-neutral-600 border-neutral-850 cursor-not-allowed opacity-40";
+          } else if (isSelected) {
+            btnClass = "bg-rose-600 text-white font-bold border-rose-500 shadow-sm shadow-rose-500/30 cursor-pointer";
+          }
+
+          return (
+            <button
+              key={seat.name}
+              disabled={!isAvailable}
+              onClick={() => toggleSeat(seat.name, isAvailable)}
+              className={`py-1 text-[9px] font-mono rounded border transition-all text-center ${btnClass}`}
+            >
+              {seat.name}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex justify-between items-center pt-2 border-t border-neutral-800 text-[10px]">
+        <span className="text-neutral-400">
+          Selected: <strong className="text-white font-mono">{selectedSeats.join(", ") || "None"}</strong> ({selectedSeats.length}/{targetCount})
+        </span>
+        <button
+          onClick={handleConfirm}
+          disabled={selectedSeats.length !== targetCount}
+          className={`px-3 py-1 rounded text-[10px] font-bold uppercase transition-colors ${
+            selectedSeats.length === targetCount
+              ? "bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-sm"
+              : "bg-neutral-800 text-neutral-500 cursor-not-allowed"
+          }`}
+        >
+          Confirm Seats
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const AIBuddy = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useSelector((state) => state.auth);
@@ -62,6 +146,20 @@ const AIBuddy = () => {
       localStorage.setItem("cv_ai_chat", JSON.stringify(data));
     }
   }, [messages, isAuthenticated, user]);
+
+  useEffect(() => {
+    if (isOpen) {
+      const storedData = localStorage.getItem("cv_ai_chat");
+      if (storedData) {
+        try {
+          const { messages: storedMessages } = JSON.parse(storedData);
+          if (storedMessages && storedMessages.length > 0) {
+            setMessages(storedMessages);
+          }
+        } catch (e) {}
+      }
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && !isMinimized) {
@@ -326,7 +424,7 @@ const AIBuddy = () => {
                             : "bg-[#161616] border-neutral-800 text-neutral-200 rounded-tl-xs"
                         }`}
                       >
-                        <p className="whitespace-pre-wrap">{m.content}</p>
+                        <p className="whitespace-pre-wrap">{m.content?.replace(/\s*\(id:[a-f0-9]{24}\)/gi, "")}</p>
 
                         {/* AI Reasoning Badge */}
                         {m.reasoning && (
@@ -344,6 +442,13 @@ const AIBuddy = () => {
                           <div className="mt-3 space-y-2.5">
                             {m.cards.map((card, cIdx) => (
                               <div key={cIdx} className="bg-[#1A1A1A] border border-neutral-800 hover:border-neutral-700 rounded-xl p-3 shadow-md space-y-2.5 transition-all">
+                                {card.cardType === "seat_layout_card" && (
+                                  <SeatLayoutInteractiveCard
+                                    card={card}
+                                    onConfirm={(query) => handleSend(query)}
+                                  />
+                                )}
+
                                 {card.cardType === "show_card" && (
                                   <>
                                     <div className="flex gap-3">
@@ -367,17 +472,40 @@ const AIBuddy = () => {
 
                                     <div className="pt-1 border-t border-neutral-800">
                                       <button
-                                        onClick={() => {
-                                          setIsOpen(false);
-                                          navigate(`/show/${card.showId}/seats`);
-                                        }}
+                                        onClick={() => handleSend(card.selectQuery || `Select showtime ${card.time} for ${card.movieTitle || "movie"} (id:${card.showId})`)}
                                         className="w-full py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors shadow-sm cursor-pointer text-center flex items-center justify-center gap-1"
                                       >
-                                        <span>Book Now</span>
+                                        <span>Select Show</span>
                                         <ArrowRight className="w-3 h-3" />
                                       </button>
                                     </div>
                                   </>
+                                )}
+
+                                {card.cardType === "confirmation_card" && (
+                                  <div className="space-y-2 p-1 font-sans">
+                                    <div className="flex items-center gap-1.5 text-xs font-bold text-white">
+                                      <MapPin className="w-3.5 h-3.5 text-rose-500 flex-shrink-0" />
+                                      <span>{card.title}</span>
+                                    </div>
+                                    <p className="text-[10px] text-neutral-300 leading-relaxed">
+                                      {card.message || "Would you like to proceed with this request?"}
+                                    </p>
+                                    <div className="flex gap-2 pt-2 border-t border-neutral-800">
+                                      <button
+                                        onClick={() => handleSend(card.confirmQuery || "Yes, proceed")}
+                                        className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors shadow-sm cursor-pointer text-center"
+                                      >
+                                        Yes, Confirm
+                                      </button>
+                                      <button
+                                        onClick={() => handleSend(card.cancelQuery || "No, keep booking")}
+                                        className="flex-1 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors border border-neutral-700 cursor-pointer text-center"
+                                      >
+                                        No, Keep Ticket
+                                      </button>
+                                    </div>
+                                  </div>
                                 )}
 
                                 {card.cardType === "movie_card" && (
@@ -500,6 +628,24 @@ const AIBuddy = () => {
                                   </div>
                                 )}
                               </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Console Log Instrumentation & Chips Renderer */}
+                        {console.log("MESSAGE", m)}
+                        {console.log("CHIPS", m.chips)}
+                        {m.chips && m.chips.length > 0 && (
+                          <div className="mt-2.5 flex flex-wrap gap-1.5 pt-1">
+                            {console.log("Rendering chips")}
+                            {m.chips.map((chip, cIdx) => (
+                              <button
+                                key={cIdx}
+                                onClick={() => handleSend(chip.query)}
+                                className="px-2.5 py-1 bg-neutral-900 hover:bg-rose-950/40 text-neutral-300 hover:text-rose-400 border border-neutral-800 hover:border-rose-800/50 rounded-full text-[10px] font-medium transition-all cursor-pointer shadow-sm"
+                              >
+                                {chip.label}
+                              </button>
                             ))}
                           </div>
                         )}

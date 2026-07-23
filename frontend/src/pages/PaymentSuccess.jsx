@@ -104,8 +104,13 @@ const PaymentSuccess = () => {
             transition={{ delay: 0.2 }}
             className="space-y-1.5"
           >
-            <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-white">Booking Confirmed!</h1>
-            <p className="text-xs text-neutral-400 font-extrabold tracking-widest uppercase">Thank you for booking with CineVerse</p>
+            <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-emerald-400">🎉 Payment Successful!</h1>
+            <p className="text-xs text-neutral-300 font-medium max-w-md mx-auto leading-relaxed">
+              Your booking has been confirmed.<br />
+              Your ticket has been generated successfully.<br />
+              You can find your ticket and QR Code in the My Tickets section.<br />
+              Enjoy your movie! 🍿
+            </p>
           </motion.div>
         </div>
 

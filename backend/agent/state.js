@@ -1,9 +1,5 @@
 const { Annotation } = require("@langchain/langgraph");
 
-/**
- * CineVerse Agent State Schema
- * Simplified for orchestration: Intent -> Entity -> Tool Router -> Formatter -> Responder
- */
 const AgentState = Annotation.Root({
   userId: Annotation({
     reducer: (x, y) => y ?? x,
@@ -63,7 +59,15 @@ const AgentState = Annotation.Root({
   }),
   seatCount: Annotation({
     reducer: (x, y) => y ?? x,
-    default: () => 1,
+    default: () => null,
+  }),
+  selectedSeats: Annotation({
+    reducer: (x, y) => y ?? x,
+    default: () => [],
+  }),
+  pendingStep: Annotation({
+    reducer: (x, y) => y ?? x,
+    default: () => null,
   }),
   pendingConfirmation: Annotation({
     reducer: (x, y) => y ?? x,
@@ -100,6 +104,14 @@ const AgentState = Annotation.Root({
   chips: Annotation({
     reducer: (x, y) => y ?? x,
     default: () => [],
+  }),
+  preferenceDetected: Annotation({
+    reducer: (x, y) => y ?? x,
+    default: () => false,
+  }),
+  preferenceText: Annotation({
+    reducer: (x, y) => y ?? x,
+    default: () => null,
   }),
 });
 

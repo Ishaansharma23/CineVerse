@@ -277,11 +277,48 @@ const Checkout = () => {
               paymentCompletedRef.current = true;
               localStorage.removeItem('cv_active_booking_id');
               dispatch(clearBooking());
+
+              const confirmedBooking = verificationResponse.booking || booking;
+              const movieTitle = confirmedBooking?.show?.movie?.title || "Movie";
+              const theatreName = confirmedBooking?.show?.screen?.theatre?.name || "CineVerse";
+              const dateStr = confirmedBooking?.show?.date ? new Date(confirmedBooking.show.date).toLocaleDateString() : "";
+              const timeStr = confirmedBooking?.show?.startTime || "";
+              const seatsStr = Array.isArray(confirmedBooking?.seats) ? confirmedBooking.seats.join(", ") : "";
+
+              const confirmationMsg = {
+                role: "assistant",
+                content: `Payment completed successfully! 🎉\n\nYour tickets for ${movieTitle} (${seatsStr}) have been confirmed. Thank you for using CineVerse! Enjoy your movie! 🍿`,
+                cards: [
+                  {
+                    cardType: "booking_card",
+                    bookingId: confirmedBooking?.bookingId || confirmedBooking?._id,
+                    movieTitle,
+                    theatreName,
+                    date: dateStr,
+                    time: timeStr,
+                    seats: seatsStr,
+                    status: "booked",
+                    amount: confirmedBooking?.totalAmount,
+                  }
+                ],
+                reasoning: `Payment confirmed for booking ${confirmedBooking?.bookingId || confirmedBooking?._id}.`,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              };
+
+              try {
+                const stored = localStorage.getItem("cv_ai_chat");
+                let chatData = stored ? JSON.parse(stored) : { messages: [] };
+                chatData.messages = [...(chatData.messages || []), confirmationMsg];
+                chatData.lastActive = Date.now();
+                localStorage.setItem("cv_ai_chat", JSON.stringify(chatData));
+              } catch (e) {
+                console.error("Failed to update AI chat on payment success:", e);
+              }
+
               toast.success('Tickets booked successfully!');
-              // Navigate to payment success screen passing details
               navigate('/payment-success', {
                 state: {
-                  booking: verificationResponse.booking || booking,
+                  booking: confirmedBooking,
                 },
               });
             } else {
@@ -403,12 +440,14 @@ const Checkout = () => {
   const screen = booking.show?.screen;
   const theatre = screen?.theatre;
 
-  // Billing breakdown parameters from backend Single Source of Truth
-  const ticketCount = booking.seats.length;
-  const ticketSubtotal = booking.subtotal !== undefined ? booking.subtotal : booking.totalAmount;
-  const convenienceFee = booking.convenienceFee !== undefined ? booking.convenienceFee : 0;
-  const gstOnFee = booking.gst !== undefined ? booking.gst : 0;
-  const orderGrandTotal = booking.totalAmount - discountAmount;
+  // Billing breakdown parameters from backend Single Source of Truth with fallbacks
+  const ticketCount = booking.seats?.length || 0;
+  const ticketPrice = booking.show?.price || 150;
+  const ticketSubtotal = booking.subtotal || (ticketCount * ticketPrice);
+  const convenienceFee = booking.convenienceFee || (30 * ticketCount);
+  const gstOnFee = booking.gst || Math.round(0.18 * (ticketSubtotal + convenienceFee));
+  const computedGrandTotal = ticketSubtotal + convenienceFee + gstOnFee;
+  const orderGrandTotal = (booking.totalAmount && booking.totalAmount > 0 ? booking.totalAmount : computedGrandTotal) - discountAmount;
 
   return (
     <div className="bg-[#0A0A0A] text-white min-h-screen py-10 px-4 md:px-8 select-none flex flex-col justify-center">

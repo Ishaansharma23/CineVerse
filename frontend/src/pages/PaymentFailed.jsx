@@ -27,9 +27,12 @@ const PaymentFailed = () => {
         </motion.div>
 
         {/* Header and Details */}
-        <h3 className="text-xl font-black text-neutral-100 tracking-tight uppercase">Payment Unsuccessful</h3>
-        <p className="text-neutral-500 text-xs mt-3 leading-relaxed font-semibold">
-          Your payment could not be processed. If any amount was debited from your account, it will be refunded automatically by your bank within 5 to 7 business days.
+        <h3 className="text-xl font-black text-rose-400 tracking-tight uppercase">Payment Failed</h3>
+        <p className="text-neutral-300 text-xs mt-4 leading-relaxed font-medium whitespace-pre-line">
+          Payment was not completed.<br />
+          Your booking has not been confirmed.<br />
+          Your reserved seats have been released.<br />
+          Please try again.
         </p>
 
         {/* Home Button */}
@@ -38,7 +41,7 @@ const PaymentFailed = () => {
           className="mt-8 w-full py-3 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 hover:border-neutral-750 text-white rounded-xl text-xs font-bold tracking-wider uppercase transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-98"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Movies
+          Back to Home
         </button>
       </motion.div>
     </div>

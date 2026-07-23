@@ -1,8 +1,6 @@
 const Offer = require("../models/Offer");
 
-// @desc    Get active promo offers
-// @route   GET /api/offers
-// @access  Public
+
 const getOffers = async (req, res) => {
   try {
     const offers = await Offer.find({ isActive: true }).sort({ createdAt: -1 });
@@ -18,9 +16,7 @@ const getOffers = async (req, res) => {
   }
 };
 
-// @desc    Create new offer code
-// @route   POST /api/offers
-// @access  Private/Admin
+
 const createOffer = async (req, res) => {
   try {
     const { title, code, description, discountType, discountValue, minPurchase } = req.body;
@@ -62,9 +58,7 @@ const createOffer = async (req, res) => {
   }
 };
 
-// @desc    Delete/Deactivate promo offer
-// @route   DELETE /api/offers/:id
-// @access  Private/Admin
+
 const deleteOffer = async (req, res) => {
   try {
     const offer = await Offer.findById(req.params.id);
@@ -88,9 +82,6 @@ const deleteOffer = async (req, res) => {
   }
 };
 
-// @desc    Validate and calculate promo code discount
-// @route   POST /api/offers/validate
-// @access  Public
 const validateOfferCode = async (req, res) => {
   try {
     const { code, amount } = req.body;
