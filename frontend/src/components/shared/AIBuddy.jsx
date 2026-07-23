@@ -480,9 +480,12 @@ const AIBuddy = () => {
                                       )}
 
                                       {card.status === 'REFUNDED' && (
-                                        <div className="w-full py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg text-[10px] font-bold uppercase tracking-wider text-center select-none cursor-default">
-                                          Refund Generated
-                                        </div>
+                                        <button
+                                          onClick={() => handleSend(`Show refund details for booking ${card.bookingId}`)}
+                                          className="w-full py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-300 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer text-center"
+                                        >
+                                          View Refund Details
+                                        </button>
                                       )}
 
                                       {card.status === 'REFUND FAILED' && (
