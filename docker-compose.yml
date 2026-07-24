@@ -13,6 +13,10 @@ services:
     env_file:
       - ./backend/.env
 
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
   frontend:
     build:
       context: ./frontend
@@ -24,3 +28,14 @@ services:
 
     env_file:
       - ./frontend/.env
+
+# left side frontend mere mac ka path or right side app -> container ka
+# : -> connect krdo host folder ko - container folder k sth (hot reload provide krta)
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+# bind mount lgte hi Ab /app pura replace ho gaya. Container ab image wala /app nahi dekh raha.
+# Mac ke frontend folder me node_modules hai? Ho bhi sakta hai, nahi bhi.
+# Ab container /app/node_modules ko apne container ke local node_modules se ignore kar dega
+# Jab bhi koi change hoga local folder me -> container me dikhega
+# Aur container apne container node_modules use karega -> fast loading
