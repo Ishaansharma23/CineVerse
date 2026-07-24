@@ -1,3 +1,26 @@
+# -      rw-      r--     r--  @    24
+# Directory 
+
+# Owner ki acess
+
+# Group ki acess
+
+# Others ki access 
+
+# R-> 4 
+# W-> 2
+# X ->. 1  === 700 
+
+# x= as a script chala payers ( run kr payers script ko)
+
+# @-> meta data 
+
+# 24->(Ye number of hard links hai.)
+#  Is directory ke andar kitni subdirectories (folders) hain.
+
+
+
+
 # pehle base img
 FROM node:22-alpine
 
