@@ -36,6 +36,12 @@ services:
       - /app/node_modules
 # bind mount lgte hi Ab /app pura replace ho gaya. Container ab image wala /app nahi dekh raha.
 # Mac ke frontend folder me node_modules hai? Ho bhi sakta hai, nahi bhi.
-# Ab container /app/node_modules ko apne container ke local node_modules se ignore kar dega
+## scene kya rhega ki app wale nodemodules jo linux m  hai uss s chalega wo 
 # Jab bhi koi change hoga local folder me -> container me dikhega
 # Aur container apne container node_modules use karega -> fast loading
+
+
+## ⚠️ Agar new dependency install karni ho to sirf Mac par npm install karne se container ko nahi milegi,
+# kyuki container Docker volume wala node_modules use kar raha hai.
+
+# Dependency container ke andar install karo ya image rebuild karo.
