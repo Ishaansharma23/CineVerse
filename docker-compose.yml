@@ -1,0 +1,26 @@
+# kitne container h ya kitni services frontend , backend
+services:
+
+  backend:
+    build:
+      context: ./backend
+
+    container_name: cineverse-backend
+# - => ye list ya array hota hai jaise env ka aise hi ports ka array
+    ports:
+      - "5000:5000"
+
+    env_file:
+      - ./backend/.env
+
+  frontend:
+    build:
+      context: ./frontend
+
+    container_name: cineverse-frontend
+
+    ports:
+      - "5173:5173"
+
+    env_file:
+      - ./frontend/.env
