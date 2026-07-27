@@ -1,0 +1,12 @@
+services:
+  backend:
+    build:
+      context: ./backend
+
+    image: ishaansharma23/cineverse-backend:latest
+
+  frontend:
+    build:
+      context: ./frontend
+
+    image: ishaansharma23/cineverse-frontend:latest
