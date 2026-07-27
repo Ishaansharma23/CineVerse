@@ -275,84 +275,31 @@ CineVerse uses a secure **JWT-in-HTTP-Only-Cookie** mechanism combined with stri
 ```mermaid
 sequenceDiagram
     autonumber
-    
-    box rgb(15, 23, 42) Client & Browser
     actor User as 👤 User / Owner / Admin
-    participant Client as 💻 React 19 Frontend
-    end
+    participant App as 💻 React 19 Frontend
+    participant API as 🛡️ Express API (Auth + RBAC)
+    participant DB as 🗄️ MongoDB Database
 
-    box rgb(30, 41, 59) Security & API Gateway
-    participant AuthMW as 🔑 Auth Middleware
-    participant RbacMW as 🔒 RBAC Guard
-    participant JWT as 🛡️ JWT Signer & Verifier
-    end
+    Note over User,DB: 1️⃣ Authentication & JWT Cookie Setup
+    User->>App: 1. Enter Credentials (Email & Password)
+    App->>API: 2. POST /api/auth/login
+    API->>DB: 3. Verify User Credentials (bcrypt)
+    DB-->>API: User Verified
+    API-->>App: 4. Set HTTP-Only Cookie (JWT Token) + Return User Object
 
-    box rgb(20, 83, 45) Database & Storage
-    participant DB as 🗄️ MongoDB User Store
-    end
-
-    rect rgb(15, 23, 42)
-    Note over User,DB: Phase 1: Authentication & Token Issuance
-    User->>Client: 1. Submit Credentials (Email & Password)
-    activate Client
-    Client->>AuthMW: 2. POST /api/auth/login { email, password }
-    activate AuthMW
-    AuthMW->>DB: 3. Query User Document by Email
-    activate DB
-    DB-->>AuthMW: 4. User Object (with bcrypt hash)
-    deactivate DB
+    Note over User,DB: 2️⃣ Role-Based Access Control (RBAC)
+    User->>App: 5. Access Protected Route (User / Owner / Admin)
+    App->>API: 6. Request API Resource (Cookie Header Attached)
+    API->>API: 7. Validate Cookie Token & Check Role Permissions
     
-    AuthMW->>AuthMW: 5. Verify Password via bcrypt.compare()
-    
-    alt ❌ Invalid Credentials
-        AuthMW-->>Client: 401 Unauthorized { error: "Invalid Email/Password" }
-        Client-->>User: Display Toast Error Message
-    else ✅ Valid Credentials
-        AuthMW->>JWT: 6. Sign JWT Payload (userId, role, exp: 7d)
-        activate JWT
-        JWT-->>AuthMW: Signed Token String
-        deactivate JWT
-        AuthMW-->>Client: 7. Set-Cookie: token=JWT; HttpOnly; Secure; SameSite=Strict<br/>200 OK { user: { id, name, role } }
-        deactivate AuthMW
-        Client-->>User: Redirect to Dashboard / Home
-    end
-    deactivate Client
-    end
-
-    rect rgb(30, 41, 59)
-    Note over User,DB: Phase 2: Protected Resource Request & RBAC Verification
-    User->>Client: 8. Navigate to Protected Route (e.g. /admin/analytics)
-    activate Client
-    Client->>AuthMW: 9. GET /api/admin/analytics (Cookie automatically attached)
-    activate AuthMW
-    AuthMW->>AuthMW: 10. Extract token from req.cookies
-    AuthMW->>JWT: 11. Verify Signature & Check Expiration
-    activate JWT
-    
-    alt ❌ Token Missing / Expired
-        JWT-->>AuthMW: Token Verification Failed
-        AuthMW-->>Client: 401 Unauthorized { error: "Session Expired" }
-        Client-->>User: Redirect to /login
-    else ✅ Token Valid
-        JWT-->>AuthMW: Decoded Token { id, role: "admin" }
-        deactivate JWT
-        AuthMW->>RbacMW: 12. Pass Control to RBAC Guard
-        activate RbacMW
-        
-        alt ❌ Role Unauthorized (e.g. role == "user")
-            RbacMW-->>Client: 403 Forbidden { error: "Access Denied" }
-        else ✅ Role Authorized (role == "admin")
-            RbacMW->>DB: 13. Query Protected Database Records
-            activate DB
-            DB-->>RbacMW: Data Payload
-            deactivate DB
-            RbacMW-->>Client: 200 OK { dataPayload }
-            deactivate RbacMW
-            Client-->>User: Render Dashboard Components
-        end
-    end
-    deactivate AuthMW
-    deactivate Client
+    alt ❌ Unauthorized / Expired
+        API-->>App: 401 Unauthorized / 403 Forbidden
+        App-->>User: Show Toast Error / Redirect to Login
+    else ✅ Access Granted
+        API->>DB: 8. Fetch Protected Records
+        DB-->>API: Return Records Payload
+        API-->>App: 9. 200 OK Response
+        App-->>User: Render Dashboard Components
     end
 ```
 
@@ -363,96 +310,36 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     autonumber
-
-    box rgb(15, 23, 42) Client & UI
     actor User as 👤 Movie Goer
-    participant SPA as 💻 React 19 Seat Map
-    end
+    participant App as 💻 React 19 Frontend
+    participant API as ⚙️ Express Backend
+    participant Redis as ⚡ Redis Lock Engine
+    participant Rzp as 💳 Razorpay Gateway
+    participant DB as 🗄️ MongoDB & Ticket Service
 
-    box rgb(30, 41, 59) Backend Core & WebSockets
-    participant API as ⚙️ Express Booking Controller
-    participant WS as ⚡ Socket.IO Engine
-    participant PDF as 📄 PDF & QR Service
-    end
-
-    box rgb(20, 83, 45) High Concurrency Storage
-    participant Redis as ⚡ Redis (5-Min TTL Lock)
-    participant DB as 🗄️ MongoDB Database
-    end
-
-    box rgb(88, 28, 135) External Payment Gateway
-    participant Rzp as 💳 Razorpay API
-    end
-
-    rect rgb(15, 23, 42)
-    Note over User,DB: Step 1: Distributed Atomic Seat Reservation
-    User->>SPA: Select Seats (e.g. A1, A2) & Click "Reserve Seats"
-    activate SPA
-    SPA->>API: POST /api/bookings/lock-seats { showId: "s123", seats: ["A1","A2"] }
-    activate API
-    API->>Redis: SET seat:s123:A1 lockData NX EX 300
-    activate Redis
+    Note over User,DB: Phase 1: 5-Minute Temporary Seat Lock
+    User->>App: 1. Select Seats & Click "Book Now"
+    App->>API: 2. POST /api/bookings/lock-seats
+    API->>Redis: 3. SET seat:showId:A1 (5-Min Atomic TTL Lock)
     
-    alt ❌ Seat Already Locked by Another User
-        Redis-->>API: Key Creation Failed (NX returns null)
-        API-->>SPA: 400 Bad Request ("Seat A1 locked by another user")
-        SPA-->>User: Display Red Seat Warning
-    else ✅ Lock Granted Successfully
-        Redis-->>API: Key Created (OK)
-        deactivate Redis
-        API->>WS: Emit 'seatsLocked' { showId: "s123", seats: ["A1","A2"] }
-        activate WS
-        WS-->>SPA: Broadcast Live Occupation to all clients viewing Show s123
-        deactivate WS
-        API-->>SPA: 200 OK { lockExpirySeconds: 300 }
-        deactivate API
-        SPA-->>User: Highlight Yellow Reserved Seats (5-Min Countdown Started)
-    end
-    deactivate SPA
+    alt ❌ Seat Locked by Another User
+        Redis-->>API: Lock Failed (NX Null)
+        API-->>App: 400 Bad Request ("Seat Unavailable")
+    else ✅ Lock Acquired
+        Redis-->>API: Lock Granted (OK)
+        API-->>App: 200 OK (5-Min Timer Started & Live WebSocket Sync)
     end
 
-    rect rgb(30, 41, 59)
-    Note over User,Rzp: Step 2: Payment Checkout & Signature Verification
-    User->>SPA: Click "Proceed to Pay ₹500"
-    activate SPA
-    SPA->>API: POST /api/payments/create-order { showId: "s123", seats: ["A1","A2"] }
-    activate API
-    API->>Rzp: Orders.create({ amount: 50000, currency: "INR" })
-    activate Rzp
-    Rzp-->>API: { id: "order_998877", amount: 50000 }
-    deactivate Rzp
-    API-->>SPA: 200 OK { orderId: "order_998877", keyId: "rzp_test_xxx" }
-    deactivate API
-
-    SPA->>Rzp: Launch Razorpay Checkout SDK Modal
-    activate Rzp
-    User->>Rzp: Enter UPI / Card Details & Approve Payment
-    Rzp-->>SPA: Return Payment Response { paymentId: "pay_112233", signature: "sig_abc" }
-    deactivate Rzp
-
-    SPA->>API: POST /api/payments/verify { orderId, paymentId, signature }
-    activate API
-    API->>API: Compute HMAC-SHA256(orderId + "|" + paymentId, secret)
+    Note over User,DB: Phase 2: Payment & Instant Confirmation
+    User->>App: 4. Complete Razorpay Payment
+    App->>Rzp: Submit Payment Credentials
+    Rzp-->>App: Return Payment Signature & ID
+    App->>API: 5. POST /api/payments/verify { paymentDetails }
     
-    alt ❌ Signature Mismatch
-        API-->>SPA: 400 Bad Request ("Payment Tampered / Invalid")
-    else ✅ Signature Verified
-        API->>DB: 1. Create Booking Record (Status: CONFIRMED)
-        activate DB
-        DB-->>API: Booking Saved
-        deactivate DB
-        API->>Redis: 2. DEL seat:s123:A1 (Release Redis Lock)
-        API->>DB: 3. Update Show Document (Add seats to permanent occupied array)
-        API->>PDF: 4. Generate Ticket PDF with QR Code Vector
-        activate PDF
-        PDF-->>API: Ticket Generated (pdfUrl, qrData)
-        deactivate PDF
-        API-->>SPA: 200 OK { bookingId: "b77", status: "CONFIRMED", ticketUrl }
-        deactivate API
-        SPA-->>User: Display Booking Success Modal & Download PDF Button
-    end
-    deactivate SPA
-    end
+    API->>API: 6. Verify HMAC-SHA256 Signature
+    API->>DB: 7. Save Booking (CONFIRMED) & Generate PDF Ticket
+    API->>Redis: 8. Release Redis Temporary Lock (DEL)
+    API-->>App: 9. 200 OK (Download PDF Ticket + QR Code)
 ```
 
 ---
