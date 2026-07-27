@@ -4,6 +4,8 @@ services:
   backend:
     build:
       context: ./backend
+    
+    image: ishaansharma23/cineverse-backend:latest
 
     container_name: cineverse-backend
 # - => ye list ya array hota hai jaise env ka aise hi ports ka array
@@ -20,6 +22,8 @@ services:
   frontend:
     build:
       context: ./frontend
+
+    image: ishaansharma23/cineverse-frontend:latest
 
     container_name: cineverse-frontend
 
