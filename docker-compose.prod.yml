@@ -1,0 +1,30 @@
+services:
+
+  backend:
+    image: ishaansharma23/cineverse-backend:latest
+
+    container_name: cineverse-backend
+
+    restart: unless-stopped
+
+    ports:
+      - "5000:5000"
+
+    env_file:
+      - backend.env
+
+  frontend:
+    image: ishaansharma23/cineverse-frontend:latest
+
+    container_name: cineverse-frontend
+
+    restart: unless-stopped
+
+    depends_on:
+      - backend
+
+    ports:
+      - "5173:5173"
+
+    env_file:
+      - frontend.env

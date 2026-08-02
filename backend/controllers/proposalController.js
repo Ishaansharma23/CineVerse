@@ -1,8 +1,5 @@
 const Proposal = require("../models/Proposal");
 
-// @desc    Submit a show proposal
-// @route   POST /api/proposals
-// @access  Public
 const submitProposal = async (req, res) => {
   try {
     const { name, email, showName, category, city, expectedPrice, message, theatreId, mediaLink } = req.body;
@@ -39,9 +36,6 @@ const submitProposal = async (req, res) => {
   }
 };
 
-// @desc    Get all show proposals
-// @route   GET /api/proposals
-// @access  Private/Admin
 const getAllProposals = async (req, res) => {
   try {
     const proposals = await Proposal.find().populate("theatreId", "name city address").sort({ createdAt: -1 });
@@ -57,9 +51,7 @@ const getAllProposals = async (req, res) => {
   }
 };
 
-// @desc    Update show proposal status
-// @route   PUT /api/proposals/:id/status
-// @access  Private/Admin
+
 const updateProposalStatus = async (req, res) => {
   try {
     const { status } = req.body;
@@ -96,9 +88,7 @@ const updateProposalStatus = async (req, res) => {
 
 const Theatre = require("../models/Theatre");
 
-// @desc    Get show proposals for owner's theatres
-// @route   GET /api/proposals/owner
-// @access  Private/Owner
+
 const getOwnerProposals = async (req, res) => {
   try {
     // Find all theatres owned by this user
@@ -122,9 +112,7 @@ const getOwnerProposals = async (req, res) => {
   }
 };
 
-// @desc    Update show proposal status by owner
-// @route   PUT /api/proposals/:id/owner-approve
-// @access  Private/Owner
+
 const ownerApproveProposal = async (req, res) => {
   try {
     const { status } = req.body;
@@ -144,7 +132,7 @@ const ownerApproveProposal = async (req, res) => {
       });
     }
 
-    // Optional: verify the owner owns the theatre for this proposal
+    // verify the owner owns the theatre for this proposal
     const theatre = await Theatre.findById(proposal.theatreId);
     if (!theatre || theatre.owner.toString() !== req.user._id.toString()) {
       return res.status(403).json({
