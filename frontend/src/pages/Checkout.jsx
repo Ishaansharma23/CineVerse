@@ -29,8 +29,10 @@ const Checkout = () => {
 
   const paymentCompletedRef = useRef(false);
 
-  // Retrieve or fallback to active booking ID
-  const activeBookingId = currentBooking?._id || localStorage.getItem('cv_active_booking_id');
+  // Retrieve or fallback to active booking ID (from URL query param, Redux state, or localStorage)
+  const queryParams = new URLSearchParams(window.location.search);
+  const bookingIdFromQuery = queryParams.get('bookingId');
+  const activeBookingId = bookingIdFromQuery || currentBooking?._id || localStorage.getItem('cv_active_booking_id');
 
   // 1. Add Razorpay Script dynamically on mount & fetch populated booking details & available offers
   useEffect(() => {

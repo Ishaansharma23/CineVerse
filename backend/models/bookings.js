@@ -112,6 +112,12 @@ const bookingSchema = new mongoose.Schema(
       default: null,
     },
 
+    // Abandoned booking reminder email status
+    paymentReminderSent: {
+      type: Boolean,
+      default: false,
+    },
+
     // Ticket QR Image (Base64)
     ticketQr: {
       type: String,
