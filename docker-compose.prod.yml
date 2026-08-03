@@ -11,7 +11,8 @@ services:
       - "5000:5000"
 
     env_file:
-      - backend.env
+      - backend/.env
+
 
   frontend:
     image: ishaansharma23/cineverse-frontend:latest
@@ -27,4 +28,4 @@ services:
       - "5173:5173"
 
     env_file:
-      - frontend.env
+      - frontend/.env
