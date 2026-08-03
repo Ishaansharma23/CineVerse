@@ -22,7 +22,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
 
           script: |
-            cd ~/cineverse
+            cd ~/CineVerse
 
             git pull origin main
 
