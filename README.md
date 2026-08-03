@@ -16,6 +16,12 @@
 [![Pinecone](https://img.shields.io/badge/Pinecone-Vector_DB-000000?logo=pinecone&logoColor=white)](https://www.pinecone.io/)
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
 
+<br />
+
+<img src="./frontend/public/banner.png" alt="CineVerse Platform Banner" width="100%" />
+
+<br />
+
 ---
 
 **CineVerse** is a modern, enterprise-ready movie ticket booking platform built with the **MERN** stack (MongoDB, Express, React 19, Node.js). Designed with production principles at its core, CineVerse features a **LangChain & LangGraph-orchestrated AI Movie Booking Agent**, distributed **Redis seat concurrency locks**, **RAG-based personalized recommendations**, **Razorpay payment automation**, real-time **Socket.IO** updates, and full **Dockerized CI/CD automation**.
@@ -48,10 +54,9 @@
   - [🚢 Docker Compose Development](#-docker-compose-development)
   - [🔄 GitHub Actions CI Pipeline](#-github-actions-ci-pipeline)
   - [🌐 API Modules](#-api-modules)
-  - [🛡️ Security Architecture](#️-security-architecture)
+  - [🛡️ Security Architecture](#-security-architecture)
   - [🚀 Performance Optimizations](#-performance-optimizations)
   - [🔮 Future Enhancements](#-future-enhancements)
-  - [📸 Screenshots](#-screenshots)
   - [📹 Demo](#-demo)
   - [👥 Contributors](#-contributors)
   - [📄 License](#-license)
@@ -98,6 +103,7 @@ The platform provides fine-grained governance through **Role-Based Access Contro
 - **📲 PDF Ticket & QR Code Generation**: Server-side generation of downloadable digital tickets formatted with `pdfkit` and embedded `qrcode` data for on-site scanning.
 - **🔄 TMDB Automated Synchronization**: Server background cron job (`node-cron`) periodically fetching latest releases, trending films, cast details, and backdrop artwork from the **TMDB API**.
 - **⚡ Real-Time Socket.IO Synchronization**: WebSocket channels broadcasting instant seat selection state changes and show updates to connected clients.
+- **📧 Automated Abandoned Booking Reminders**: Background cron engine (`node-cron` & `nodemailer`) monitoring uncompleted seat reservations and dispatching dynamic, genre-aware, high-conversion email reminders with direct payment resume links.
 - **🐳 Full Docker & CI Engine**: Complete containerization with multi-stage Dockerfiles, Docker Compose dev profiles, and automated **GitHub Actions CI** pushing multi-architecture images to Docker Hub.
 
 ---
@@ -706,22 +712,6 @@ Configure the following repository secrets under **Settings > Secrets and variab
 - **📊 Observability & Monitoring**: Prometheus metric collection visualized through Grafana dashboards, with centralized logging via Grafana Loki.
 - **🚀 CD Automated Deployment**: Continuous Deployment pipeline expanding GitHub Actions to auto-deploy build artifacts to AWS Kubernetes (EKS).
 - **💬 Multi-Channel Ticket Notifications**: Integration with WhatsApp API (Twilio) for instant ticket delivery.
-
----
-
-## 📸 Screenshots
-
-<div align="center">
-
-| Homepage & Hero Banner | Interactive Seat Map Grid |
-| :---: | :---: |
-| *(Add Screenshot)* | *(Add Screenshot)* |
-
-| AI Movie Booking Agent | Theatre Owner Dashboard |
-| :---: | :---: |
-| *(Add Screenshot)* | *(Add Screenshot)* |
-
-</div>
 
 ---
 
