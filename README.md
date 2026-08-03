@@ -14,6 +14,7 @@
 [![Redis](https://img.shields.io/badge/Redis-v6%2B-DC382D?logo=redis&logoColor=white)](https://redis.io/)
 [![LangChain](https://img.shields.io/badge/LangChain-v1.2-1C3C3C?logo=langchain&logoColor=white)](https://www.langchain.com/)
 [![Pinecone](https://img.shields.io/badge/Pinecone-Vector_DB-000000?logo=pinecone&logoColor=white)](https://www.pinecone.io/)
+[![AWS EC2](https://img.shields.io/badge/AWS-EC2-FF9900?logo=amazon-aws&logoColor=white)](https://aws.amazon.com/ec2/)
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
 
 <br />
@@ -24,9 +25,9 @@
 
 ---
 
-**CineVerse** is a modern, enterprise-ready movie ticket booking platform built with the **MERN** stack (MongoDB, Express, React 19, Node.js). Designed with production principles at its core, CineVerse features a **LangChain & LangGraph-orchestrated AI Movie Booking Agent**, distributed **Redis seat concurrency locks**, **RAG-based personalized recommendations**, **Razorpay payment automation**, real-time **Socket.IO** updates, and full **Dockerized CI/CD automation**.
+**CineVerse** is a modern, enterprise-ready movie ticket booking platform built with the **MERN** stack (MongoDB, Express, React 19, Node.js). Designed with production principles at its core, CineVerse features a **LangChain & LangGraph-orchestrated AI Movie Booking Agent**, distributed **Redis seat concurrency locks**, **RAG-based personalized recommendations**, **Razorpay payment automation**, real-time **Socket.IO** updates, and full **AWS EC2 production deployment** with an automated **GitHub Actions CI/CD pipeline**.
 
-[Explore Features](#-features) • [System Architecture](#-system-architecture) • [AI Agent Architecture](#-ai-agent-architecture) • [Docker Setup](#-docker-setup) • [CI Pipeline](#-github-actions-ci-pipeline)
+[Explore Features](#-features) • [System Architecture](#-system-architecture) • [AI Agent Architecture](#-ai-agent-architecture) • [Docker Setup](#-docker-setup) • [CI/CD & AWS Deployment](#-github-actions-cicd--aws-deployment)
 
 </div>
 
@@ -52,7 +53,7 @@
   - [🔑 Environment Variables](#-environment-variables)
   - [🐳 Docker Setup](#-docker-setup)
   - [🚢 Docker Compose Development](#-docker-compose-development)
-  - [🔄 GitHub Actions CI Pipeline](#-github-actions-ci-pipeline)
+  - [🔄 GitHub Actions CI/CD & AWS Deployment](#-github-actions-cicd--aws-deployment)
   - [🌐 API Modules](#-api-modules)
   - [🛡️ Security Architecture](#-security-architecture)
   - [🚀 Performance Optimizations](#-performance-optimizations)
@@ -104,7 +105,7 @@ The platform provides fine-grained governance through **Role-Based Access Contro
 - **🔄 TMDB Automated Synchronization**: Server background cron job (`node-cron`) periodically fetching latest releases, trending films, cast details, and backdrop artwork from the **TMDB API**.
 - **⚡ Real-Time Socket.IO Synchronization**: WebSocket channels broadcasting instant seat selection state changes and show updates to connected clients.
 - **📧 Automated Abandoned Booking Reminders**: Background cron engine (`node-cron` & `nodemailer`) monitoring uncompleted seat reservations and dispatching dynamic, genre-aware, high-conversion email reminders with direct payment resume links.
-- **🐳 Full Docker & CI Engine**: Complete containerization with multi-stage Dockerfiles, Docker Compose dev profiles, and automated **GitHub Actions CI** pushing multi-architecture images to Docker Hub.
+- **☁️ AWS EC2 & Automated CI/CD Pipeline**: End-to-end continuous integration & continuous deployment via **GitHub Actions** (`.github/workflows/docker.yml` & `cd.yml`), building multi-stage Docker containers to Docker Hub and automatically SSH-deploying live containers to **AWS EC2** upon code push.
 
 ---
 
@@ -635,37 +636,66 @@ docker compose down
 
 ---
 
-## 🔄 GitHub Actions CI Pipeline
+## 🔄 GitHub Actions CI/CD & AWS Deployment
 
-CineVerse runs an automated **GitHub Actions CI pipeline** (`.github/workflows/docker.yml`) that builds and pushes multi-container Docker images directly to Docker Hub whenever changes are merged into `main`.
+CineVerse runs an automated, production-grade **GitHub Actions CI/CD Pipeline** (`.github/workflows/docker.yml` & `.github/workflows/cd.yml`) that builds, pushes, and auto-deploys updated services to **AWS EC2** on every push to `main`.
+
+### 1️⃣ Continuous Integration (CI) Pipeline
+- **Trigger**: `git push` to `main` branch.
+- **Workflow File**: `.github/workflows/docker.yml`
+- **Automated Steps**:
+  1. Checks out repository code (`actions/checkout@v4`).
+  2. Configures Docker Buildx builder (`docker/setup-buildx-action@v3`).
+  3. Authenticates with Docker Hub (`docker/login-action@v3`).
+  4. Builds multi-container production images (`docker compose -f docker-compose.ci.yml build`).
+  5. Pushes tagged images to Docker Hub (`ishaansharma23/cineverse-backend:latest` & `ishaansharma23/cineverse-frontend:latest`).
+
+### 2️⃣ Continuous Deployment (CD) Pipeline
+- **Trigger**: Automatically invoked on successful completion of **CineVerse CI**.
+- **Workflow File**: `.github/workflows/cd.yml`
+- **Automated Steps**:
+  1. Establishes a secure SSH session with the **AWS EC2 Server** (`appleboy/ssh-action@v1.2.0`).
+  2. Pulls latest repository changes on EC2 (`git pull origin main`).
+  3. Pulls fresh Docker Hub container images (`docker compose -f docker-compose.prod.yml pull`).
+  4. Restarts production containers (`docker compose -f docker-compose.prod.yml up -d --remove-orphans`).
+  5. Cleans up dangling image layers (`docker image prune -f`) to maintain disk health.
 
 ```mermaid
-flowchart LR
+flowchart TD
     classDef devStyle fill:#1e1b4b,stroke:#818cf8,stroke-width:2px,color:#fff
     classDef runnerStyle fill:#064e3b,stroke:#34d399,stroke-width:2px,color:#fff
     classDef dockerStyle fill:#1e293b,stroke:#38bdf8,stroke-width:2px,color:#fff
+    classDef awsStyle fill:#431407,stroke:#f97316,stroke-width:2px,color:#fff
 
-    DEV["👨‍💻 Developer"]:::devStyle -->|Git Push to main| GH_REPO["📦 GitHub Repository"]:::devStyle
-    GH_REPO -->|Triggers Workflow| RUNNER["⚙️ GitHub Actions Ubuntu Runner"]:::runnerStyle
+    DEV["👨‍💻 Developer"]:::devStyle -->|Git Push to main| GH["📦 GitHub Repository"]:::devStyle
 
-    subgraph CI_STEPS ["🚀 AUTOMATED CI PIPELINE STEPS"]
-        RUNNER --> STEP1["1️⃣ Checkout Repository<br/>actions/checkout@v4"]:::runnerStyle
-        STEP1 --> STEP2["2️⃣ Set up Docker Buildx<br/>docker/setup-buildx-action@v3"]:::runnerStyle
-        STEP2 --> STEP3["3️⃣ Login to Docker Hub<br/>docker/login-action@v3"]:::runnerStyle
-        STEP3 --> STEP4["4️⃣ Build Docker Images<br/>docker compose -f docker-compose.ci.yml build"]:::dockerStyle
-        STEP4 --> STEP5["5️⃣ Push Docker Images<br/>docker compose -f docker-compose.ci.yml push"]:::dockerStyle
+    subgraph CI ["🚀 PHASE 1: CONTINUOUS INTEGRATION (CI)"]
+        GH -->|Triggers docker.yml| CI_RUNNER["⚙️ GitHub Actions CI Runner"]:::runnerStyle
+        CI_RUNNER --> BUILD["1️⃣ Build Docker Images<br/>docker-compose.ci.yml"]:::dockerStyle
+        BUILD --> PUSH["2️⃣ Push Images to Docker Hub<br/>ishaansharma23/cineverse-*"]:::dockerStyle
     end
 
-    STEP5 --> REG1["🐳 Docker Hub Registry<br/>ishaansharma23/cineverse-backend:latest"]:::dockerStyle
-    STEP5 --> REG2["🐳 Docker Hub Registry<br/>ishaansharma23/cineverse-frontend:latest"]:::dockerStyle
+    subgraph CD ["☁️ PHASE 2: CONTINUOUS DEPLOYMENT (CD)"]
+        PUSH -->|CI Success Event| CD_RUNNER["⚙️ GitHub Actions CD Runner"]:::runnerStyle
+        CD_RUNNER --> SSH["3️⃣ SSH Connection to AWS EC2<br/>appleboy/ssh-action@v1.2.0"]:::awsStyle
+        SSH --> PULL["4️⃣ Pull Latest Code & Docker Images<br/>docker-compose.prod.yml pull"]:::awsStyle
+        PULL --> DEPLOY["5️⃣ Zero-Downtime Container Restart<br/>docker compose up -d"]:::awsStyle
+    end
+
+    DEPLOY --> LIVE["🌐 AWS EC2 Live Production Instance"]:::awsStyle
 ```
 
 ### GitHub Secrets Required
 
 Configure the following repository secrets under **Settings > Secrets and variables > Actions**:
 
-- `DOCKER_USERNAME`: Your Docker Hub username (`ishaansharma23`)
-- `DOCKER_TOKEN`: Docker Hub Personal Access Token
+| Secret Key | Description |
+| :--- | :--- |
+| `DOCKER_USERNAME` | Docker Hub username (`ishaansharma23`) |
+| `DOCKER_TOKEN` | Docker Hub Personal Access Token |
+| `EC2_HOST` | Public IP or DNS domain of the AWS EC2 instance |
+| `EC2_USER` | SSH username for the AWS instance (e.g. `ubuntu`) |
+| `EC2_SSH_KEY` | Private SSH RSA key paired with the EC2 server |
 
 ---
 
@@ -707,10 +737,10 @@ Configure the following repository secrets under **Settings > Secrets and variab
 
 ## 🔮 Future Enhancements
 
-- **☁️ AWS Infrastructure Deployment**: Terraform provisioning for AWS ECS Fargate, Application Load Balancers (ALB), and ElastiCache Redis clusters.
+- **☁️ AWS Multi-Region Infrastructure**: Expansion to AWS ECS Fargate and ElastiCache Redis clusters.
 - **🔒 Nginx Reverse Proxy & SSL**: Nginx ingress controller with automated SSL certificate renewal via Let's Encrypt / Certbot.
 - **📊 Observability & Monitoring**: Prometheus metric collection visualized through Grafana dashboards, with centralized logging via Grafana Loki.
-- **🚀 CD Automated Deployment**: Continuous Deployment pipeline expanding GitHub Actions to auto-deploy build artifacts to AWS Kubernetes (EKS).
+- **⛵ Kubernetes Container Orchestration**: Scaling container deployment with AWS EKS and horizontal pod autoscaling.
 - **💬 Multi-Channel Ticket Notifications**: Integration with WhatsApp API (Twilio) for instant ticket delivery.
 
 ---
