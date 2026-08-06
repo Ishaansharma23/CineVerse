@@ -58,7 +58,6 @@
   - [🛡️ Security Architecture](#-security-architecture)
   - [🚀 Performance Optimizations](#-performance-optimizations)
   - [🔮 Future Enhancements](#-future-enhancements)
-  - [📹 Demo](#-demo)
   - [👥 Contributors](#-contributors)
   - [📄 License](#-license)
   - [📬 Contact](#-contact)
@@ -745,19 +744,13 @@ Configure the following repository secrets under **Settings > Secrets and variab
 
 ---
 
-## 📹 Demo
-
-> 📺 **Watch Full Project Walkthrough**: [Link to Video Demo / YouTube](https://github.com/ishaansharma23/cineVerse)
-
----
-
 ## 👥 Contributors
 
 <div align="center">
 
-| Avatar | Contributor | Role | GitHub |
-| :---: | :---: | :---: | :---: |
-| <img src="https://github.com/ishaansharma23.png" width="80px;" style="border-radius:50%"/> | **Ishaan Sharma** | Creator & Lead Engineer | [@ishaansharma23](https://github.com/ishaansharma23) |
+| Avatar | Contributor | GitHub |
+| :---: | :---: | :---: |
+| <img src="https://github.com/ishaansharma23.png" width="80px;" style="border-radius:50%"/> | **Ishaan Sharma** | [@ishaansharma23](https://github.com/ishaansharma23) |
 
 </div>
 
